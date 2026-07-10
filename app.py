@@ -1,13 +1,18 @@
 from flask import Flask, render_template, Response, jsonify, send_file, request
 import cv2
-from deepface import DeepFace
+import logging
+try:
+    from deepface import DeepFace
+except Exception:
+    DeepFace = None
+    logger = logging.getLogger(__name__)
+    logger.warning('deepface not available; emotion analysis will be disabled')
 from collections import Counter, deque
 import threading
 import datetime
 import json
 import csv
 import io
-import logging
 from pathlib import Path
 import base64
 import numpy as np
@@ -33,74 +38,256 @@ emotion_intensity_history = deque(maxlen=100)  # Track emotion intensity
 current_frame = None  # Store current frame for snapshot
 sessions_archive = []  # Store past sessions for comparison
 
-camera = cv2.VideoCapture(0)
+import os
+
+# Initialize camera from environment or default to webcam 0. If unavailable,
+# leave as None and generate_frames will produce a placeholder image.
+def init_camera():
+    source = os.environ.get('VIDEO_SOURCE', '0')
+    try:
+        # allow numeric source (webcam index) or file path
+        cam_index = int(source)
+        cam = cv2.VideoCapture(cam_index)
+    except Exception:
+        cam = cv2.VideoCapture(source)
+
+    if cam is None or not cam.isOpened():
+        logger.warning(f"Camera source '{source}' not available; using placeholder frames.")
+        return None
+
+    return cam
+
+
+camera = init_camera()
+
+# Initialize face cascade and ONNX model for fallback/alternative emotion analysis
+face_cascade = None
+emotion_net = None
+
+def init_onnx_model():
+    global face_cascade, emotion_net
+    # 1. Load Haar Cascade
+    cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    if os.path.exists(cascade_path):
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+    else:
+        logger.error(f"Haar cascade XML not found at {cascade_path}")
+        
+    # 2. Download and load ONNX model
+    model_path = "emotion.onnx"
+    if not os.path.exists(model_path):
+        logger.info("Downloading pre-trained emotion.onnx model...")
+        model_url = "https://github.com/microsoft/onnxjs-demo/raw/master/public/emotion.onnx"
+        try:
+            import urllib.request
+            urllib.request.urlretrieve(model_url, model_path)
+            logger.info("ONNX model downloaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to download ONNX model: {e}")
+            return
+            
+    try:
+        emotion_net = cv2.dnn.readNetFromONNX(model_path)
+        logger.info("ONNX emotion model loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load ONNX model: {e}")
+
+init_onnx_model()
 
 def generate_frames():
-    global current_frame
+    global current_frame, camera
+    scores_history = deque(maxlen=5)  # Rolling buffer for temporal smoothing (faster reaction time)
     while True:
+        if camera is None:
+            # Create a placeholder frame when no camera is available
+            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(frame, 'No camera available', (30, 240),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1, (0, 0, 255), 2)
+            # sleep a short while to avoid tight-looping
+            # (yielding frames at ~5 FPS)
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            continue
+
         success, frame = camera.read()
         if not success:
-            break
+            # if camera read fails, switch to placeholder next loop
+            logger.warning('Camera read failed; switching to placeholder frames.')
+            camera.release()
+            camera = None
+            continue
 
-        try:
-            result = DeepFace.analyze(
-                frame,
-                actions=['emotion'],
-                enforce_detection=False,
-                silent=True
-            )
+        # Perform emotion analysis if DeepFace is available
+        if DeepFace is not None:
+            try:
+                result = DeepFace.analyze(
+                    frame,
+                    actions=['emotion'],
+                    enforce_detection=False,
+                    silent=True
+                )
 
-            emotion = result[0]['dominant_emotion']
-            emotion_scores = result[0]['emotion']
-            
-            # Map 'sad' to 'cry' for better user understanding
-            display_emotion = 'cry' if emotion == 'sad' else emotion
-            counter_emotion = 'cry' if emotion == 'sad' else emotion
-            
-            # Calculate emotion intensity (dominant emotion score)
-            emotion_intensity = max(emotion_scores.values())
-
-            with lock:
-                current_frame = frame.copy()  # Store current frame for snapshots
-                emotion_counter[counter_emotion] += 1
+                emotion = result[0]['dominant_emotion']
+                emotion_scores = result[0]['emotion']
                 
-                # Track history with timestamp (limit to last 100 entries)
-                emotion_history.append({
-                    'emotion': counter_emotion,
-                    'timestamp': datetime.datetime.now().isoformat(),
-                    'scores': emotion_scores
-                })
-                if len(emotion_history) > 100:
-                    emotion_history.pop(0)
+                # Map 'sad' to 'cry' for better user understanding
+                display_emotion = 'cry' if emotion == 'sad' else emotion
+                counter_emotion = 'cry' if emotion == 'sad' else emotion
                 
-                # Track emotion intensity
-                emotion_intensity_history.append({
-                    'timestamp': datetime.datetime.now().isoformat(),
-                    'emotion': counter_emotion,
-                    'intensity': emotion_intensity
-                })
+                # Calculate emotion intensity (dominant emotion score)
+                emotion_intensity = max(emotion_scores.values())
 
-            # Draw emotion and confidence
-            cv2.putText(frame, f'Emotion: {display_emotion}', (30, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0, 255, 0), 2)
-            
-            # Show top 3 emotions with scores
-            y_offset = 80
-            sorted_emotions = sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True)[:3]
-            for emo, score in sorted_emotions:
-                display_emo = 'cry' if emo == 'sad' else emo
-                cv2.putText(frame, f'{display_emo}: {score:.1f}%', (30, y_offset),
+                with lock:
+                    current_frame = frame.copy()  # Store current frame for snapshots
+                    emotion_counter[counter_emotion] += 1
+                    
+                    # Track history with timestamp (limit to last 100 entries)
+                    emotion_history.append({
+                        'emotion': counter_emotion,
+                        'timestamp': datetime.datetime.now().isoformat(),
+                        'scores': emotion_scores
+                    })
+                    if len(emotion_history) > 100:
+                        emotion_history.pop(0)
+                    
+                    # Track emotion intensity
+                    emotion_intensity_history.append({
+                        'timestamp': datetime.datetime.now().isoformat(),
+                        'emotion': counter_emotion,
+                        'intensity': emotion_intensity
+                    })
+
+                # Draw emotion and confidence
+                cv2.putText(frame, f'Emotion: {display_emotion}', (30, 40),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1, (0, 255, 0), 2)
+                
+                # Show top 3 emotions with scores
+                y_offset = 80
+                sorted_emotions = sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True)[:3]
+                for emo, score in sorted_emotions:
+                    display_emo = 'cry' if emo == 'sad' else emo
+                    cv2.putText(frame, f'{display_emo}: {score:.1f}%', (30, y_offset),
+                               cv2.FONT_HERSHEY_SIMPLEX,
+                               0.6, (255, 255, 0), 1)
+                    y_offset += 30
+
+            except Exception:
+                # Draw error message
+                cv2.putText(frame, 'No face detected', (30, 40),
                            cv2.FONT_HERSHEY_SIMPLEX,
-                           0.6, (255, 255, 0), 1)
-                y_offset += 30
-
-        except Exception as e:
-            # Draw error message
-            cv2.putText(frame, 'No face detected', (30, 40),
+                           0.7, (0, 0, 255), 2)
+        elif emotion_net is not None and face_cascade is not None:
+            try:
+                # Convert to grayscale for face detection and processing
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+                
+                if len(faces) > 0:
+                    # Use the largest face
+                    (x, y, w, h) = max(faces, key=lambda f: f[2] * f[3])
+                    
+                    # Draw a rectangle around the detected face
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                    
+                    # Tighten crop slightly (5% padding) to focus on facial features
+                    pad_w = int(w * 0.05)
+                    pad_h = int(h * 0.05)
+                    x1 = max(0, x + pad_w)
+                    y1 = max(0, y + pad_h)
+                    x2 = min(frame.shape[1], x + w - pad_w)
+                    y2 = min(frame.shape[0], y + h - pad_h)
+                    
+                    # Crop and prepare the face ROI for the ONNX model
+                    face_roi = gray[y1:y2, x1:x2]
+                    face_roi = cv2.resize(face_roi, (64, 64))
+                    
+                    # Preprocess: (pixel_val - 127.5) / 127.5
+                    normalized = (face_roi.astype(np.float32) - 127.5) / 127.5
+                    blob = np.expand_dims(np.expand_dims(normalized, axis=0), axis=0)
+                    
+                    # Run inference
+                    emotion_net.setInput(blob)
+                    preds = emotion_net.forward()
+                    
+                    # The ONNX model already outputs softmax probabilities
+                    scores = preds[0]
+                    
+                    # Map raw scores to the target 7 emotions
+                    current_scores = {
+                        'neutral': float(scores[0] + scores[7]) * 100,  # Combine neutral and contempt
+                        'happy': float(scores[1]) * 100,
+                        'surprise': float(scores[2]) * 100,
+                        'sad': float(scores[3]) * 100,
+                        'angry': float(scores[4]) * 100,
+                        'disgust': float(scores[5]) * 100,
+                        'fear': float(scores[6]) * 100
+                    }
+                    
+                    # Smooth scores over the rolling window
+                    scores_history.append(current_scores)
+                    emotion_scores = {}
+                    for key in current_scores.keys():
+                        emotion_scores[key] = sum(s[key] for s in scores_history) / len(scores_history)
+                    
+                    emotion = max(emotion_scores, key=emotion_scores.get)
+                    emotion_intensity = max(emotion_scores.values())
+                    
+                    # Keep 'cry' for internal tracking/database, but display 'sad' to the user
+                    display_emotion = 'sad' if emotion in ['sad', 'cry'] else emotion
+                    counter_emotion = 'cry' if emotion == 'sad' else emotion
+                    
+                    with lock:
+                        current_frame = frame.copy()
+                        emotion_counter[counter_emotion] += 1
+                        
+                        emotion_history.append({
+                            'emotion': counter_emotion,
+                            'timestamp': datetime.datetime.now().isoformat(),
+                            'scores': emotion_scores
+                        })
+                        if len(emotion_history) > 100:
+                            emotion_history.pop(0)
+                        
+                        emotion_intensity_history.append({
+                            'timestamp': datetime.datetime.now().isoformat(),
+                            'emotion': counter_emotion,
+                            'intensity': emotion_intensity
+                        })
+                    
+                    # Annotate the frame with bounding box and emotion
+                    cv2.putText(frame, f'Emotion: {display_emotion}', (x, y - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.8, (0, 255, 0), 2)
+                    
+                    # Show top 3 emotions with scores
+                    y_offset = y + h + 25
+                    sorted_emotions = sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True)[:3]
+                    for emo, score in sorted_emotions:
+                        display_emo = 'sad' if emo in ['sad', 'cry'] else emo
+                        cv2.putText(frame, f'{display_emo}: {score:.1f}%', (x, y_offset),
+                                   cv2.FONT_HERSHEY_SIMPLEX,
+                                   0.5, (255, 255, 0), 1)
+                        y_offset += 20
+                else:
+                    scores_history.clear()  # Clear history buffer when no face is detected
+                    cv2.putText(frame, 'No face detected', (30, 40),
+                               cv2.FONT_HERSHEY_SIMPLEX,
+                               0.7, (0, 0, 255), 2)
+            except Exception as e:
+                logger.error(f"Error in ONNX fallback: {e}")
+                cv2.putText(frame, 'Analysis Error', (30, 40),
+                           cv2.FONT_HERSHEY_SIMPLEX,
+                           0.7, (0, 0, 255), 2)
+        else:
+            # Fallback if no models are available
+            cv2.putText(frame, 'Emotion Engine Offline', (30, 40),
                        cv2.FONT_HERSHEY_SIMPLEX,
-                       0.7, (0, 0, 255), 2)
-            pass
+                       0.8, (0, 255, 255), 2)
 
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
