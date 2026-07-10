@@ -1,25 +1,4 @@
-# Core Web Framework
 Flask==3.1.2
 Werkzeug==3.1.5
-
-# Computer Vision & Deep Learning
-opencv-python==4.13.0.92
-tensorflow>=2.17.0
-tf-keras>=2.17.0
-deepface>=0.0.93
-
-# Data Processing & Analysis
+opencv-python-headless==4.10.0.84
 numpy>=2.0.0
-pandas==3.0.0
-
-# Visualization
-matplotlib==3.10.0
-seaborn==0.13.2
-
-# Machine Learning
-scikit-learn==1.8.0
-
-# Additional Dependencies
-Pillow>=10.0.0
-protobuf>=3.20.0
-
