@@ -198,8 +198,6 @@ For support, email support@emotisense.com or visit the Help page in the applicat
   - RESTful API
   - Modern UI/UX design
 
----
 
-Made with ❤️ by the EmotiSense Team
 
 **EmotiSense** - Powered by AI & Deep Learning
