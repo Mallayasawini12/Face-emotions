@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics Dashboard - EmotiSense</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260726_4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -34,6 +34,9 @@
                     <i class="fas fa-question-circle"></i>
                     Help
                 </a>
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="theme-toggle-btn" title="Toggle Light/Dark Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
             </nav>
         </div>
     </header>
@@ -138,6 +141,10 @@
                     <i class="fas fa-file-csv"></i>
                     Export CSV
                 </button>
+                <a href="/report/print" target="_blank" class="btn" style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; text-decoration: none;">
+                    <i class="fas fa-file-pdf"></i>
+                    Export PDF Report
+                </a>
                 <button onclick="resetStats()" class="btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
                     <i class="fas fa-redo"></i>
                     Reset Statistics
@@ -156,6 +163,34 @@
     </script>
 
     <script>
+        // Theme Switcher Logic
+        (function() {
+            const savedTheme = localStorage.getItem('emotisense_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('emotisense_theme', newTheme);
+            updateThemeToggleIcon(newTheme);
+            applyChartTheme(newTheme);
+        }
+
+        function updateThemeToggleIcon(theme) {
+            const icon = document.querySelector('#themeToggleBtn i');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            updateThemeToggleIcon(currentTheme);
+            applyChartTheme(currentTheme);
+        });
+
         const emotionData = JSON.parse(document.getElementById('emotionData').textContent);
         const emotionLabels = Object.keys(emotionData);
         const emotionValues = Object.values(emotionData);
@@ -184,19 +219,37 @@
                 dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1);
         }
 
+        let barChart = null;
+        let pieChart = null;
+
+        function applyChartTheme(theme) {
+            const isDark = theme === 'dark';
+            Chart.defaults.color = isDark ? '#cbd5e1' : '#475569';
+            if (barChart) {
+                barChart.options.scales.y.ticks.color = isDark ? '#cbd5e1' : '#64748b';
+                barChart.options.scales.x.ticks.color = isDark ? '#cbd5e1' : '#64748b';
+                barChart.options.scales.y.grid.color = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)';
+                barChart.update();
+            }
+            if (pieChart) {
+                pieChart.options.plugins.legend.labels.color = isDark ? '#cbd5e1' : '#334155';
+                pieChart.update();
+            }
+        }
+
         // Color palette
         const colors = [
-            'rgba(255, 159, 64, 0.8)',
-            'rgba(54, 162, 235, 0.8)',
-            'rgba(255, 99, 132, 0.8)',
-            'rgba(153, 102, 255, 0.8)',
-            'rgba(255, 206, 86, 0.8)',
-            'rgba(75, 192, 192, 0.8)',
-            'rgba(201, 203, 207, 0.8)'
+            '#4f46e5',
+            '#0284c7',
+            '#10b981',
+            '#e11d48',
+            '#f59e0b',
+            '#7c3aed',
+            '#ec4899'
         ];
 
         // Bar Chart
-        new Chart(document.getElementById('emotionBarChart'), {
+        barChart = new Chart(document.getElementById('emotionBarChart'), {
             type: 'bar',
             data: {
                 labels: emotionLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
@@ -216,7 +269,9 @@
                         display: false
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#f1f5f9',
                         padding: 12,
                         cornerRadius: 8
                     }
@@ -224,11 +279,13 @@
                 scales: {
                     y: {
                         beginAtZero: true,
+                        ticks: { color: '#64748b' },
                         grid: {
                             color: 'rgba(0, 0, 0, 0.05)'
                         }
                     },
                     x: {
+                        ticks: { color: '#64748b' },
                         grid: {
                             display: false
                         }
@@ -238,7 +295,7 @@
         });
 
         // Pie Chart
-        new Chart(document.getElementById('emotionPieChart'), {
+        pieChart = new Chart(document.getElementById('emotionPieChart'), {
             type: 'doughnut',
             data: {
                 labels: emotionLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
@@ -256,6 +313,7 @@
                         position: 'right',
                         labels: {
                             padding: 15,
+                            color: '#334155',
                             font: {
                                 size: 12
                             },
@@ -263,12 +321,14 @@
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#f1f5f9',
                         padding: 12,
                         cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
-                                const percentage = ((context.parsed / totalDetections) * 100).toFixed(1);
+                                const percentage = totalDetections > 0 ? ((context.parsed / totalDetections) * 100).toFixed(1) : 0;
                                 return context.label + ': ' + percentage + '%';
                             }
                         }

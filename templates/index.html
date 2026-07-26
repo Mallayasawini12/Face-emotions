@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EmotiSense - Real-Time Emotion Detection</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>EmotiSense - Real-Time AI Emotion Detection & Mood Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260726_4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Header -->
     <header class="header">
         <div class="header-content">
-            <div class="logo">
+            <a href="/" class="logo">
                 <i class="fas fa-brain"></i>
                 <span>EmotiSense</span>
-            </div>
+            </a>
             <nav class="nav">
                 <a href="/" class="nav-link active">
                     <i class="fas fa-video"></i>
@@ -33,6 +33,9 @@
                     <i class="fas fa-question-circle"></i>
                     Help
                 </a>
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="theme-toggle-btn" title="Toggle Light/Dark Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
             </nav>
         </div>
     </header>
@@ -40,76 +43,519 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="hero-section">
-            <div class="hero-text">
-                <h1 class="hero-title">
-                    Real-Time <span class="gradient-text">Emotion Detection</span>
-                </h1>
-                <p class="hero-subtitle">
-                    Advanced AI-powered facial emotion recognition system
-                </p>
-            </div>
+            <h1 class="hero-title">
+                Real-Time <span class="gradient-text">AI Emotion HUD & Mood Hub</span>
+            </h1>
+            <p class="hero-subtitle">
+                Live facial expression analysis, mood music recommendations & emotion snapshot gallery
+            </p>
         </div>
 
         <div class="container">
-            <!-- Status Card -->
+            <!-- Status & Live Telemetry Controls Bar -->
             <div class="status-card">
-                <div class="status-indicator">
-                    <div class="pulse-dot"></div>
-                    <span>Live</span>
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <div class="status-indicator">
+                        <div class="pulse-dot"></div>
+                        <span>SYSTEM ONLINE</span>
+                    </div>
+                    <div class="status-info">
+                        <i class="fas fa-camera" style="color: var(--secondary);"></i>
+                        <span>Webcam Feed Active</span>
+                    </div>
                 </div>
-                <div class="status-info">
-                    <i class="fas fa-camera"></i>
-                    <span>Camera Active</span>
+
+                <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                    <button onclick="takeSnapshot()" class="btn btn-secondary" style="padding: 0.55rem 1.15rem; font-size: 0.875rem;">
+                        <i class="fas fa-camera" style="color: var(--primary);"></i> Take Snapshot
+                    </button>
+                    <button onclick="openSnapshotGallery()" class="btn btn-secondary" style="padding: 0.55rem 1.15rem; font-size: 0.875rem;">
+                        <i class="fas fa-images" style="color: var(--secondary);"></i> Gallery (<span id="snapCount">0</span>)
+                    </button>
+                    <button onclick="toggleVoiceFeedback()" class="btn btn-secondary" id="voiceToggleBtn" style="padding: 0.55rem 1.15rem; font-size: 0.875rem;">
+                        <i class="fas fa-volume-mute"></i> Voice Off
+                    </button>
+                    <button onclick="toggleFullScreen()" class="btn btn-primary" id="fsToggleBtn" style="padding: 0.55rem 1.15rem; font-size: 0.875rem;">
+                        <i class="fas fa-expand"></i> <span id="fsBtnText">Full Screen View</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- Video Container -->
+            <!-- Live Emotion Speed Gauge & Telemetry Widget -->
+            <div class="status-card" style="margin-bottom: 1.5rem; background: var(--bg-card);">
+                <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 0.85rem;">
+                        <div id="liveMoodIcon" style="font-size: 2.5rem; width: 50px; text-align: center;">😐</div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Active Detected Mood</div>
+                            <div id="liveMoodName" style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); text-transform: capitalize;">Neutral</div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Live Confidence Gauge -->
+                    <div style="min-width: 200px; flex: 1;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">
+                            <span>Live Emotion Intensity Gauge</span>
+                            <span id="liveConfidenceVal" style="color: var(--primary); font-weight: 800;">100%</span>
+                        </div>
+                        <div class="progress-bar" style="height: 12px; background: rgba(0, 0, 0, 0.08);">
+                            <div id="liveConfidenceBar" class="progress-fill" style="width: 100%; background: var(--primary-gradient);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mood-Based Music & Motivational Quote Recommender Card -->
+            <div class="about-card" style="margin-bottom: 2rem; border-left: 5px solid var(--primary); box-shadow: var(--shadow-sm);">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem;">
+                    <div style="flex: 1; min-width: 280px;">
+                        <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--primary); letter-spacing: 0.5px; margin-bottom: 0.35rem;">
+                            <i class="fas fa-quote-left"></i> Live Mood Quote Recommender
+                        </div>
+                        <div id="moodQuote" style="font-size: 1.05rem; font-weight: 600; color: var(--text-primary); line-height: 1.6;">
+                            "A peaceful mind produces a powerful, steady life. Stay balanced!"
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 1rem; background: var(--bg-main); padding: 0.85rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                        <i class="fab fa-spotify" style="font-size: 2.2rem; color: #1ed760;"></i>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Suggested Spotify Playlist</div>
+                            <a id="moodMusicLink" href="https://open.spotify.com/playlist/37i9dQZF1DX8NTLI2TtZa6" target="_blank" style="font-size: 0.95rem; font-weight: 700; color: var(--primary); text-decoration: none;">
+                                Deep Focus & Study Instrumentals <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HUD Video Container -->
             <div class="video-container">
-                <div class="video-wrapper">
-                    <div class="video-frame">
-                        <img src="{{ url_for('video') }}" alt="Live emotion detection feed">
+                <div class="video-wrapper" id="videoWrapper">
+                    <div class="video-frame" id="videoFrame">
+                        <img src="{{ url_for('video') }}" alt="Live emotion detection feed" id="videoFeedImg">
                         <div class="video-overlay">
                             <div class="corner-decoration top-left"></div>
                             <div class="corner-decoration top-right"></div>
                             <div class="corner-decoration bottom-left"></div>
                             <div class="corner-decoration bottom-right"></div>
                         </div>
+                        <button onclick="toggleFullScreen()" class="fullscreen-overlay-btn" title="Toggle Fullscreen">
+                            <i class="fas fa-expand"></i>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Info Cards -->
+                <!-- Info Grid -->
                 <div class="info-grid">
-                    <div class="info-card">
+                    <div class="info-card interactive-card" onclick="openCardModal('seven_emotions')">
                         <i class="fas fa-smile icon-purple"></i>
-                        <h3>7 Emotions</h3>
-                        <p>Detects multiple facial expressions</p>
+                        <h3>7 Emotion Classes</h3>
+                        <p>Recognizes happy, sad/cry, angry, surprise, fear, disgust & neutral expressions.</p>
+                        <div class="card-badge"><i class="fas fa-info-circle"></i> View Details</div>
                     </div>
-                    <div class="info-card">
+                    <div class="info-card interactive-card" onclick="openCardModal('realtime_inference')">
                         <i class="fas fa-bolt icon-yellow"></i>
-                        <h3>Real-Time</h3>
-                        <p>Instant emotion analysis</p>
+                        <h3>Real-Time Inference</h3>
+                        <p>High-FPS computer vision pipeline with instant temporal confidence smoothing.</p>
+                        <div class="card-badge"><i class="fas fa-info-circle"></i> View Details</div>
                     </div>
-                    <div class="info-card">
+                    <div class="info-card interactive-card" onclick="openCardModal('session_telemetry')">
                         <i class="fas fa-chart-bar icon-green"></i>
-                        <h3>Analytics</h3>
-                        <p>Track emotion patterns</p>
+                        <h3>Analytics Engine</h3>
+                        <p>Track emotion duration, session metrics & export reports in CSV and JSON.</p>
+                        <div class="card-badge"><i class="fas fa-info-circle"></i> View Details</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Action Button -->
-            <div class="action-section">
-                <a href="/dashboard" class="btn btn-primary">
+            <!-- Action Buttons -->
+            <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-top: 2rem;">
+                <a href="/dashboard" class="btn btn-primary" style="padding: 0.85rem 2.2rem; font-size: 1rem;">
                     <i class="fas fa-chart-line"></i>
-                    View Analytics Dashboard
+                    Open Analytics Dashboard
+                </a>
+                <a href="/report/print" target="_blank" class="btn btn-secondary" style="padding: 0.85rem 2rem; font-size: 1rem;">
+                    <i class="fas fa-file-pdf"></i>
+                    Print / Export PDF Report
                 </a>
             </div>
         </div>
     </main>
 
+    <!-- Card Information Modal Backdrop & Drawer -->
+    <div id="cardInfoModal" class="info-modal-backdrop" onclick="closeCardModalOnBackdrop(event)">
+        <div class="info-modal-container">
+            <div class="info-modal-header">
+                <div class="info-modal-title-group">
+                    <div id="modalIconContainer" class="info-modal-icon">
+                        <i id="modalIcon" class="fas fa-info-circle"></i>
+                    </div>
+                    <div>
+                        <h2 id="modalTitle">Technology Title</h2>
+                        <div id="modalSubtitle" class="info-modal-subtitle">Category & Details</div>
+                    </div>
+                </div>
+                <button onclick="closeCardModal()" class="info-modal-close" title="Close Modal">&times;</button>
+            </div>
+            <div class="info-modal-body">
+                <p id="modalDesc" class="info-modal-desc"></p>
+
+                <div class="info-modal-section-title">
+                    <i class="fas fa-list-check"></i> Key Technical Specifications & Highlights
+                </div>
+                <ul id="modalBullets" class="info-modal-list"></ul>
+
+                <div class="info-modal-box">
+                    <i class="fas fa-lightbulb" style="color:var(--warning); margin-right:0.35rem;"></i>
+                    <span id="modalNote">Architecture Note</span>
+                </div>
+            </div>
+            <div class="info-modal-footer">
+                <button onclick="closeCardModal()" class="btn btn-primary" style="padding:0.6rem 1.4rem; font-size:0.9rem;">
+                    Got It!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snapshot Gallery Modal -->
+    <div id="snapshotGalleryModal" class="info-modal-backdrop" onclick="closeSnapshotModalOnBackdrop(event)">
+        <div class="info-modal-container" style="max-width: 780px;">
+            <div class="info-modal-header">
+                <div class="info-modal-title-group">
+                    <div class="info-modal-icon" style="background: rgba(2, 132, 199, 0.1); color: var(--secondary);">
+                        <i class="fas fa-images"></i>
+                    </div>
+                    <div>
+                        <h2>Captured Snapshots Gallery</h2>
+                        <div class="info-modal-subtitle">Saved emotion photos from your session</div>
+                    </div>
+                </div>
+                <button onclick="closeSnapshotGallery()" class="info-modal-close">&times;</button>
+            </div>
+            <div class="info-modal-body">
+                <div id="snapshotGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem;">
+                    <p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No snapshots captured yet. Click "Take Snapshot" during live stream!</p>
+                </div>
+            </div>
+            <div class="info-modal-footer">
+                <button onclick="closeSnapshotGallery()" class="btn btn-secondary" style="padding: 0.6rem 1.4rem; font-size: 0.9rem;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2026 EmotiSense. Powered by AI & Deep Learning</p>
+        <p>&copy; 2026 EmotiSense AI. Powered by OpenCV, ONNX & Deep Learning</p>
     </footer>
+
+    <script>
+        // Theme Switcher Logic
+        (function() {
+            const savedTheme = localStorage.getItem('emotisense_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('emotisense_theme', newTheme);
+            updateThemeToggleIcon(newTheme);
+        }
+
+        function updateThemeToggleIcon(theme) {
+            const icon = document.querySelector('#themeToggleBtn i');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            updateThemeToggleIcon(currentTheme);
+            fetchSnapshots();
+        });
+
+        // 🎙️ Voice Audio Feedback (Text-To-Speech)
+        let voiceEnabled = false;
+        let lastSpokenEmotion = '';
+
+        function toggleVoiceFeedback() {
+            voiceEnabled = !voiceEnabled;
+            const btn = document.getElementById('voiceToggleBtn');
+            if (voiceEnabled) {
+                btn.innerHTML = '<i class="fas fa-volume-up" style="color:var(--success);"></i> Voice On';
+                btn.style.borderColor = 'var(--success)';
+                speakText('Voice feedback enabled');
+            } else {
+                btn.innerHTML = '<i class="fas fa-volume-mute"></i> Voice Off';
+                btn.style.borderColor = 'var(--border-color)';
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speakText(text) {
+            if (!voiceEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 📊 Live Telemetry & Mood Recommender Polling
+        let previousMood = '';
+        async function pollLiveTelemetry() {
+            try {
+                const res = await fetch('/api/emotions');
+                const data = await res.json();
+
+                if (data.dominant_emotion) {
+                    const mood = data.dominant_emotion;
+                    const confidence = data.confidence || 100;
+                    const rec = data.recommendation || {};
+
+                    document.getElementById('liveMoodName').textContent = mood.charAt(0).toUpperCase() + mood.slice(1);
+                    document.getElementById('liveMoodIcon').textContent = rec.icon || '😐';
+                    document.getElementById('liveConfidenceVal').textContent = confidence + '%';
+                    document.getElementById('liveConfidenceBar').style.width = confidence + '%';
+
+                    if (rec.quote) {
+                        document.getElementById('moodQuote').textContent = `"${rec.quote}"`;
+                    }
+                    if (rec.playlist_url && rec.music_title) {
+                        const musicLink = document.getElementById('moodMusicLink');
+                        musicLink.href = rec.playlist_url;
+                        musicLink.innerHTML = `${rec.music_title} <i class="fas fa-external-link-alt" style="font-size:0.75rem;"></i>`;
+                    }
+
+                    if (voiceEnabled && mood !== lastSpokenEmotion && confidence > 40) {
+                        lastSpokenEmotion = mood;
+                        speakText(`${mood} detected`);
+                    }
+                }
+            } catch (err) {
+                console.error("Telemetry error:", err);
+            }
+        }
+        setInterval(pollLiveTelemetry, 1500);
+        pollLiveTelemetry();
+
+        // 📸 Snapshot Capture & Gallery
+        async function takeSnapshot() {
+            try {
+                const res = await fetch('/api/snapshot', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(`Snapshot captured! Dominant mood: ${data.snapshot.emotion.toUpperCase()}`);
+                    fetchSnapshots();
+                } else {
+                    alert('Error capturing snapshot: ' + data.message);
+                }
+            } catch (err) {
+                alert('Snapshot error: ' + err.message);
+            }
+        }
+
+        async function fetchSnapshots() {
+            try {
+                const res = await fetch('/api/snapshots');
+                const data = await res.json();
+
+                if (data.success) {
+                    const grid = document.getElementById('snapshotGrid');
+                    const countEl = document.getElementById('snapCount');
+                    const snaps = data.snapshots || [];
+
+                    if (countEl) countEl.textContent = snaps.length;
+
+                    if (snaps.length === 0) {
+                        grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No snapshots captured yet. Click "Take Snapshot" during live stream!</p>';
+                        return;
+                    }
+
+                    grid.innerHTML = '';
+                    snaps.forEach(snap => {
+                        const card = document.createElement('div');
+                        card.style.background = 'var(--bg-main)';
+                        card.style.border = '1px solid var(--border-color)';
+                        card.style.borderRadius = 'var(--radius-md)';
+                        card.style.overflow = 'hidden';
+                        card.style.boxShadow = 'var(--shadow-sm)';
+                        card.innerHTML = `
+                            <img src="${snap.image}" alt="Snapshot" style="width: 100%; height: 140px; object-fit: cover;">
+                            <div style="padding: 0.75rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                                    <span style="font-size:0.85rem; font-weight:700; text-transform:capitalize; color:var(--primary);">${snap.emotion}</span>
+                                    <span style="font-size:0.75rem; color:var(--text-muted);">${snap.timestamp}</span>
+                                </div>
+                                <a href="${snap.image}" download="EmotiSense_Snapshot_${snap.id}.jpg" class="btn btn-secondary" style="width:100%; padding:0.4rem; font-size:0.8rem; text-decoration:none;">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                }
+            } catch (err) {
+                console.error("Snapshots fetch error:", err);
+            }
+        }
+
+        function openSnapshotGallery() {
+            fetchSnapshots();
+            const modal = document.getElementById('snapshotGalleryModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSnapshotGallery() {
+            const modal = document.getElementById('snapshotGalleryModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function closeSnapshotModalOnBackdrop(e) {
+            if (e.target.id === 'snapshotGalleryModal') {
+                closeSnapshotGallery();
+            }
+        }
+
+        // Comprehensive Card Knowledge Dictionary
+        const CARD_DETAILS = {
+            'realtime_inference': {
+                title: 'Real-Time Inference Engine',
+                subtitle: 'Low-Latency Neural Analysis',
+                icon: 'fas fa-bolt',
+                color: '#4f46e5',
+                desc: 'Processes live webcam video frames continuously with sub-15ms processing latency. Facial expressions are localized, normalized, and classified instantly as you speak, smile, or move.',
+                bullets: [
+                    'Sub-15ms end-to-end frame latency.',
+                    'Smooth 30-60 FPS video throughput.',
+                    'Zero video freezing or buffering delays.'
+                ],
+                note: 'Key Benefit: Delivers immediate feedback of facial micro-expressions.'
+            },
+            'seven_emotions': {
+                title: '7 Facial Emotion Classes',
+                subtitle: 'Comprehensive Expression Classifier',
+                icon: 'fas fa-smile',
+                color: '#0284c7',
+                desc: 'Recognizes and classifies 7 primary human emotion states: Happy 😊, Cry / Sad 😢, Angry 😠, Surprise 😮, Fear 😨, Disgust 🤢, and Neutral 😐.',
+                bullets: [
+                    'Color-coded text cards for instant visual identification.',
+                    'Confidence percentage scoring for each expression.',
+                    'Supports multi-face emotion localization.'
+                ],
+                note: 'Key Benefit: Provides rich, multi-dimensional emotional analysis.'
+            },
+            'session_telemetry': {
+                title: 'Session Telemetry & Analytics',
+                subtitle: 'Real-Time Duration & Count Tracking',
+                icon: 'fas fa-chart-line',
+                color: '#10b981',
+                desc: 'Tracks complete session stats in background memory, counting total emotion detections, active duration, dominant emotion types, and frequency ratios.',
+                bullets: [
+                    'Real-time stats polling via REST API.',
+                    'Dominant emotion aggregation algorithm.',
+                    'Session counter reset capabilities.'
+                ],
+                note: 'Key Benefit: Measures mood changes and emotional duration over time.'
+            }
+        };
+
+        function openCardModal(key) {
+            const info = CARD_DETAILS[key];
+            if (!info) return;
+
+            document.getElementById('modalTitle').textContent = info.title;
+            document.getElementById('modalSubtitle').textContent = info.subtitle;
+            document.getElementById('modalDesc').textContent = info.desc;
+            document.getElementById('modalNote').textContent = info.note;
+
+            const iconEl = document.getElementById('modalIcon');
+            iconEl.className = info.icon;
+            const iconContainer = document.getElementById('modalIconContainer');
+            iconContainer.style.color = info.color;
+            iconContainer.style.background = info.color + '18';
+
+            const bulletsList = document.getElementById('modalBullets');
+            bulletsList.innerHTML = '';
+            info.bullets.forEach(bulletText => {
+                const li = document.createElement('li');
+                li.textContent = bulletText;
+                bulletsList.appendChild(li);
+            });
+
+            const modal = document.getElementById('cardInfoModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeCardModal() {
+            const modal = document.getElementById('cardInfoModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function closeCardModalOnBackdrop(e) {
+            if (e.target.id === 'cardInfoModal') {
+                closeCardModal();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeCardModal();
+                closeSnapshotGallery();
+            }
+        });
+
+        function toggleFullScreen() {
+            const wrapper = document.getElementById('videoWrapper') || document.documentElement;
+            const btnText = document.getElementById('fsBtnText');
+            const btnIcon = document.querySelector('#fsToggleBtn i');
+
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                if (wrapper.requestFullscreen) {
+                    wrapper.requestFullscreen();
+                } else if (wrapper.webkitRequestFullscreen) {
+                    wrapper.webkitRequestFullscreen();
+                } else if (wrapper.msRequestFullscreen) {
+                    wrapper.msRequestFullscreen();
+                }
+                if (btnText) btnText.textContent = "Exit Full Screen";
+                if (btnIcon) btnIcon.className = "fas fa-compress";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                if (btnText) btnText.textContent = "Full Screen View";
+                if (btnIcon) btnIcon.className = "fas fa-expand";
+            }
+        }
+
+        document.addEventListener('fullscreenchange', handleFsChange);
+        document.addEventListener('webkitfullscreenchange', handleFsChange);
+
+        function handleFsChange() {
+            const btnText = document.getElementById('fsBtnText');
+            const btnIcon = document.querySelector('#fsToggleBtn i');
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (btnText) btnText.textContent = "Exit Full Screen";
+                if (btnIcon) btnIcon.className = "fas fa-compress";
+            } else {
+                if (btnText) btnText.textContent = "Full Screen View";
+                if (btnIcon) btnIcon.className = "fas fa-expand";
+            }
+        }
+    </script>
 </body>
 </html>

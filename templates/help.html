@@ -4,29 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Help & Documentation - EmotiSense</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260726_4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         .faq-item {
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             margin-bottom: 1rem;
-            border-radius: 15px;
+            border-radius: var(--radius-md);
             overflow: hidden;
-            box-shadow: var(--shadow-md);
+            box-shadow: var(--shadow-sm);
         }
         .faq-question {
-            padding: 1.5rem;
+            padding: 1.25rem 1.5rem;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-weight: 600;
-            color: var(--dark);
+            font-weight: 700;
+            color: var(--text-primary);
             transition: all 0.3s ease;
         }
         .faq-question:hover {
-            background: var(--light);
+            background: rgba(79, 70, 229, 0.05);
+            color: var(--primary);
         }
         .faq-question i {
             transition: transform 0.3s ease;
@@ -45,46 +47,55 @@
             padding: 0 1.5rem 1.5rem;
         }
         .faq-answer p {
-            color: var(--gray);
+            color: var(--text-secondary);
             line-height: 1.8;
         }
         .guide-step {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 1.75rem 2rem;
+            border-radius: var(--radius-lg);
             margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-md);
+            box-shadow: var(--shadow-sm);
+            color: var(--text-primary);
         }
         .guide-step h3 {
             color: var(--primary);
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            font-size: 1.15rem;
+        }
+        .guide-step p {
+            color: var(--text-secondary);
+            line-height: 1.7;
         }
         .api-endpoint {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 10px;
+            background: var(--bg-main);
+            border: 1px solid var(--border-color);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
             margin: 1rem 0;
             font-family: 'Courier New', monospace;
             border-left: 4px solid var(--primary);
+            color: var(--text-primary);
         }
         .api-method {
             display: inline-block;
             padding: 0.25rem 0.75rem;
             border-radius: 5px;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.85rem;
             margin-right: 0.5rem;
         }
         .method-get {
-            background: #28a745;
+            background: #10b981;
             color: white;
         }
         .method-post {
-            background: #ffc107;
-            color: #000;
+            background: #f59e0b;
+            color: #000000;
         }
     </style>
 </head>
@@ -113,6 +124,9 @@
                     <i class="fas fa-question-circle"></i>
                     Help
                 </a>
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="theme-toggle-btn" title="Toggle Light/Dark Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
             </nav>
         </div>
     </header>
@@ -325,9 +339,13 @@
                     <h2>Need More Help?</h2>
                     <p style="color: var(--gray); margin-bottom: 2rem;">Can't find what you're looking for? We're here to help!</p>
                     <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                        <a href="mailto:support@emotisense.com" class="btn btn-primary">
+                        <button onclick="openSupportModal()" class="btn btn-primary" id="emailSupportBtn">
                             <i class="fas fa-envelope"></i>
-                            Email Support
+                            Email Support (mallayasaswini7@gmail.com)
+                        </button>
+                        <a href="https://github.com/Mallayasawini12/Face-emotions/issues" target="_blank" class="btn" style="background: white; color: var(--primary); border: 2px solid var(--primary);">
+                            <i class="fab fa-github"></i>
+                            Report an Issue
                         </a>
                         <a href="/about" class="btn" style="background: white; color: var(--primary); border: 2px solid var(--primary);">
                             <i class="fas fa-info-circle"></i>
@@ -336,6 +354,53 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Support Modal Overlay -->
+            <div id="supportModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); z-index: 9999; justify-content: center; align-items: center; padding: 1rem;">
+                <div style="background: #ffffff; width: 100%; max-width: 520px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); overflow: hidden; animation: modalFadeIn 0.25s ease-out;">
+                    <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 1.5rem; color: white; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-paper-plane"></i> Send Message to Support
+                        </h3>
+                        <button onclick="closeSupportModal()" style="background: transparent; border: none; color: white; font-size: 1.25rem; cursor: pointer; opacity: 0.8; transition: opacity 0.2s;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="supportForm" onsubmit="submitSupportForm(event)" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="background: #eef2ff; border-left: 4px solid #4f46e5; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem; color: #3730a3;">
+                            <i class="fas fa-envelope-open-text" style="margin-right: 0.4rem;"></i>
+                            Recipient: <strong>mallayasaswini7@gmail.com</strong>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-size: 0.875rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem;">Your Name</label>
+                            <input type="text" id="suppName" required placeholder="Enter your full name" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border-color 0.2s;">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.875rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem;">Your Email Address</label>
+                            <input type="email" id="suppEmail" required placeholder="name@example.com" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border-color 0.2s;">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.875rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem;">Support Message / Feedback</label>
+                            <textarea id="suppMessage" rows="4" required placeholder="Describe your inquiry or feedback here..." style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; resize: vertical; transition: border-color 0.2s;"></textarea>
+                        </div>
+
+                        <div id="suppStatusMsg" style="display: none; padding: 0.75rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500;"></div>
+
+                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.5rem; flex-wrap: wrap;">
+                            <button type="button" onclick="openInGmail()" class="btn" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 0.4rem;">
+                                <i class="fab fa-google" style="color: #ea4335;"></i> Open in Gmail
+                            </button>
+                            <button type="submit" id="suppSubmitBtn" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.4rem;">
+                                <i class="fas fa-paper-plane"></i> Send Message
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             <!-- Back Button -->
             <div class="action-section">
@@ -371,6 +436,107 @@
                 element.classList.add('active');
             }
         }
+
+        function openSupportModal() {
+            const modal = document.getElementById('supportModal');
+            modal.style.display = 'flex';
+            document.getElementById('suppStatusMsg').style.display = 'none';
+        }
+
+        function closeSupportModal() {
+            const modal = document.getElementById('supportModal');
+            modal.style.display = 'none';
+        }
+
+        function openInGmail() {
+            const targetEmail = "mallayasaswini7@gmail.com";
+            const name = encodeURIComponent(document.getElementById('suppName').value || '');
+            const userEmail = encodeURIComponent(document.getElementById('suppEmail').value || '');
+            const msg = encodeURIComponent(document.getElementById('suppMessage').value || '');
+            
+            const subject = encodeURIComponent("EmotiSense Support Request");
+            const body = encodeURIComponent(`From: ${name} (${userEmail})\n\nMessage:\n${document.getElementById('suppMessage').value || ''}`);
+            
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${targetEmail}&su=${subject}&body=${body}`;
+            window.open(gmailUrl, '_blank');
+        }
+
+        async function submitSupportForm(event) {
+            event.preventDefault();
+            const submitBtn = document.getElementById('suppSubmitBtn');
+            const statusMsg = document.getElementById('suppStatusMsg');
+            
+            const name = document.getElementById('suppName').value.trim();
+            const email = document.getElementById('suppEmail').value.trim();
+            const message = document.getElementById('suppMessage').value.trim();
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            statusMsg.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/support', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusMsg.style.display = 'block';
+                    statusMsg.style.background = '#dcfce7';
+                    statusMsg.style.border = '1px solid #86efac';
+                    statusMsg.style.color = '#166534';
+                    statusMsg.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+
+                    // Automatically open Gmail compose tab with pre-filled feedback to mallayasaswini7@gmail.com
+                    if (data.gmail_url) {
+                        window.open(data.gmail_url, '_blank');
+                    }
+
+                    document.getElementById('supportForm').reset();
+                    setTimeout(() => { closeSupportModal(); }, 4000);
+                } else {
+                    throw new Error(data.message || 'Failed to send message');
+                }
+            } catch (err) {
+                statusMsg.style.display = 'block';
+                statusMsg.style.background = '#fee2e2';
+                statusMsg.style.border = '1px solid #fca5a5';
+                statusMsg.style.color = '#991b1b';
+                statusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + err.message;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+            }
+        }
+
+        // Theme Switcher Logic
+        (function() {
+            const savedTheme = localStorage.getItem('emotisense_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('emotisense_theme', newTheme);
+            updateThemeToggleIcon(newTheme);
+        }
+
+        function updateThemeToggleIcon(theme) {
+            const icon = document.querySelector('#themeToggleBtn i');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            updateThemeToggleIcon(currentTheme);
+        });
     </script>
 </body>
 </html>

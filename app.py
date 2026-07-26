@@ -1,6 +1,7 @@
 from flask import Flask, render_template, Response, jsonify, send_file, request
 import cv2
 import logging
+import os
 try:
     from deepface import DeepFace
 except Exception:
@@ -10,6 +11,7 @@ except Exception:
 from collections import Counter, deque
 import threading
 import datetime
+import time
 import json
 import csv
 import io
@@ -25,7 +27,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'), static_folder=os.path.join(BASE_DIR, 'static'))
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
 
 # Global variables
 emotion_counter = Counter()
@@ -44,19 +53,48 @@ import os
 # leave as None and generate_frames will produce a placeholder image.
 def init_camera():
     source = os.environ.get('VIDEO_SOURCE', '0')
-    try:
-        # allow numeric source (webcam index) or file path
-        cam_index = int(source)
-        cam = cv2.VideoCapture(cam_index)
-    except Exception:
+    
+    if not source.isdigit():
         cam = cv2.VideoCapture(source)
+        if cam is not None and cam.isOpened():
+            logger.info(f"Video file source '{source}' initialized.")
+            return cam
 
-    if cam is None or not cam.isOpened():
-        logger.warning(f"Camera source '{source}' not available; using placeholder frames.")
-        return None
+    try:
+        start_index = int(source)
+        indices = [start_index] + [i for i in [0, 1, 2, 3] if i != start_index]
+        
+        # Prioritize CAP_DSHOW on Windows to prevent MSMF error -2147024114
+        backends = []
+        if hasattr(cv2, 'CAP_DSHOW'):
+            backends.append(cv2.CAP_DSHOW)
+        backends.append(None)
+        if hasattr(cv2, 'CAP_MSMF'):
+            backends.append(cv2.CAP_MSMF)
+            
+        for idx in indices:
+            for b_flag in backends:
+                try:
+                    if b_flag is not None:
+                        cam = cv2.VideoCapture(idx, b_flag)
+                    else:
+                        cam = cv2.VideoCapture(idx)
+                        
+                    if cam is not None and cam.isOpened():
+                        # Set resolution
+                        cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                        cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                        ret, test_frame = cam.read()
+                        if ret and test_frame is not None and test_frame.size > 0:
+                            logger.info(f"Webcam initialized successfully at index {idx} with backend {b_flag}")
+                            return cam
+                        cam.release()
+                except Exception as err:
+                    continue
+    except Exception as e:
+        logger.warning(f"Camera init error: {e}")
 
-    return cam
-
+    return None
 
 camera = init_camera()
 
@@ -66,14 +104,12 @@ emotion_net = None
 
 def init_onnx_model():
     global face_cascade, emotion_net
-    # 1. Load Haar Cascade
     cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
     if os.path.exists(cascade_path):
         face_cascade = cv2.CascadeClassifier(cascade_path)
     else:
         logger.error(f"Haar cascade XML not found at {cascade_path}")
         
-    # 2. Download and load ONNX model
     model_path = "emotion.onnx"
     if not os.path.exists(model_path):
         logger.info("Downloading pre-trained emotion.onnx model...")
@@ -94,30 +130,70 @@ def init_onnx_model():
 
 init_onnx_model()
 
-def generate_frames():
-    global current_frame, camera
-    scores_history = deque(maxlen=5)  # Rolling buffer for temporal smoothing (faster reaction time)
-    while True:
-        if camera is None:
-            # Create a placeholder frame when no camera is available
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(frame, 'No camera available', (30, 240),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0, 0, 255), 2)
-            # sleep a short while to avoid tight-looping
-            # (yielding frames at ~5 FPS)
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
+EMOTION_COLORS = {
+    'happy': (0, 230, 115),      # Bright Emerald Green
+    'sad': (255, 180, 50),       # Bright Sky Blue
+    'cry': (255, 180, 50),       # Bright Sky Blue
+    'angry': (50, 50, 255),      # Bright Coral Red
+    'surprise': (235, 100, 255), # Bright Neon Pink / Purple
+    'neutral': (255, 255, 255),  # Crisp Pure White
+    'fear': (0, 165, 255),       # Vibrant Amber Orange
+    'disgust': (180, 50, 180)    # Deep Violet
+}
 
+def draw_styled_text(img, text, pos, font_scale=0.7, text_color=(255, 255, 255), bg_color=(15, 23, 42)):
+    """Fast, smooth text card rendering with solid dark background card & crisp outline"""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    thickness = 2
+    (text_w, text_h), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    x, y = pos
+
+    pad_x, pad_y = 6, 4
+    rect_x1 = max(0, x - pad_x)
+    rect_y1 = max(0, y - text_h - pad_y)
+    rect_x2 = min(img.shape[1], x + text_w + pad_x)
+    rect_y2 = min(img.shape[0], y + baseline + pad_y)
+
+    # Fast solid dark card box background (0ms overhead)
+    cv2.rectangle(img, (rect_x1, rect_y1), (rect_x2, rect_y2), bg_color, -1)
+
+    # Black outline
+    cv2.putText(img, text, (x, y), font, font_scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
+    # Main vibrant text
+    cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness, cv2.LINE_AA)
+
+def generate_frames():
+    global current_frame, camera, last_cam_retry
+    scores_history = deque(maxlen=5)
+    
+    while True:
+        now = time.time()
+        if camera is None:
+            # Auto-retry connecting to camera every 2 seconds
+            if now - last_cam_retry > 2.0:
+                last_cam_retry = now
+                camera = init_camera()
+                if camera is not None:
+                    continue
+
+            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            draw_styled_text(frame, 'Searching for Camera...', (30, 220), font_scale=0.9, text_color=(255, 255, 255))
+            draw_styled_text(frame, 'Please allow camera access or plug in webcam', (30, 270), font_scale=0.55, text_color=(0, 255, 255))
+
+            ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            frame_bytes = buffer.tobytes()
             yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            time.sleep(0.3)
             continue
 
         success, frame = camera.read()
-        if not success:
-            # if camera read fails, switch to placeholder next loop
-            logger.warning('Camera read failed; switching to placeholder frames.')
-            camera.release()
+        if not success or frame is None or frame.size == 0:
+            logger.warning('Camera frame read failed; releasing camera and retrying...')
+            try:
+                camera.release()
+            except Exception:
+                pass
             camera = None
             continue
 
@@ -133,19 +209,14 @@ def generate_frames():
 
                 emotion = result[0]['dominant_emotion']
                 emotion_scores = result[0]['emotion']
-                
-                # Map 'sad' to 'cry' for better user understanding
                 display_emotion = 'cry' if emotion == 'sad' else emotion
                 counter_emotion = 'cry' if emotion == 'sad' else emotion
-                
-                # Calculate emotion intensity (dominant emotion score)
                 emotion_intensity = max(emotion_scores.values())
 
                 with lock:
-                    current_frame = frame.copy()  # Store current frame for snapshots
+                    current_frame = frame.copy()
                     emotion_counter[counter_emotion] += 1
                     
-                    # Track history with timestamp (limit to last 100 entries)
                     emotion_history.append({
                         'emotion': counter_emotion,
                         'timestamp': datetime.datetime.now().isoformat(),
@@ -154,47 +225,46 @@ def generate_frames():
                     if len(emotion_history) > 100:
                         emotion_history.pop(0)
                     
-                    # Track emotion intensity
                     emotion_intensity_history.append({
                         'timestamp': datetime.datetime.now().isoformat(),
                         'emotion': counter_emotion,
                         'intensity': emotion_intensity
                     })
 
-                # Draw emotion and confidence
-                cv2.putText(frame, f'Emotion: {display_emotion}', (30, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1, (0, 255, 0), 2)
+                # Draw top emotion
+                main_color = EMOTION_COLORS.get(display_emotion, (0, 255, 0))
+                draw_styled_text(frame, f'Emotion: {display_emotion.upper()}', (30, 45), font_scale=0.85, text_color=main_color)
                 
                 # Show top 3 emotions with scores
-                y_offset = 80
+                y_offset = 90
                 sorted_emotions = sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True)[:3]
                 for emo, score in sorted_emotions:
-                    display_emo = 'cry' if emo == 'sad' else emo
-                    cv2.putText(frame, f'{display_emo}: {score:.1f}%', (30, y_offset),
-                               cv2.FONT_HERSHEY_SIMPLEX,
-                               0.6, (255, 255, 0), 1)
-                    y_offset += 30
+                    display_emo = 'sad' if emo == 'sad' else emo
+                    emo_color = EMOTION_COLORS.get(display_emo, (255, 255, 255))
+                    draw_styled_text(frame, f'{display_emo.capitalize()}: {score:.1f}%', (30, y_offset), font_scale=0.6, text_color=emo_color)
+                    y_offset += 32
 
             except Exception:
-                # Draw error message
-                cv2.putText(frame, 'No face detected', (30, 40),
-                           cv2.FONT_HERSHEY_SIMPLEX,
-                           0.7, (0, 0, 255), 2)
+                draw_styled_text(frame, 'No face detected', (30, 45), font_scale=0.75, text_color=(50, 50, 255))
         elif emotion_net is not None and face_cascade is not None:
             try:
-                # Convert to grayscale for face detection and processing
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+                
+                # Downscale gray image to 320x240 for ultra-fast face detection (5ms vs 100ms)
+                small_h, small_w = 240, 320
+                small_gray = cv2.resize(gray, (small_w, small_h))
+                scale_x = frame.shape[1] / float(small_w)
+                scale_y = frame.shape[0] / float(small_h)
+
+                faces = face_cascade.detectMultiScale(small_gray, scaleFactor=1.2, minNeighbors=4, minSize=(20, 20))
                 
                 if len(faces) > 0:
-                    # Use the largest face
-                    (x, y, w, h) = max(faces, key=lambda f: f[2] * f[3])
+                    (sx, sy, sw, sh) = max(faces, key=lambda f: f[2] * f[3])
+                    x = int(sx * scale_x)
+                    y = int(sy * scale_y)
+                    w = int(sw * scale_x)
+                    h = int(sh * scale_y)
                     
-                    # Draw a rectangle around the detected face
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                    
-                    # Tighten crop slightly (5% padding) to focus on facial features
                     pad_w = int(w * 0.05)
                     pad_h = int(h * 0.05)
                     x1 = max(0, x + pad_w)
@@ -202,24 +272,18 @@ def generate_frames():
                     x2 = min(frame.shape[1], x + w - pad_w)
                     y2 = min(frame.shape[0], y + h - pad_h)
                     
-                    # Crop and prepare the face ROI for the ONNX model
                     face_roi = gray[y1:y2, x1:x2]
                     face_roi = cv2.resize(face_roi, (64, 64))
                     
-                    # Preprocess: (pixel_val - 127.5) / 127.5
                     normalized = (face_roi.astype(np.float32) - 127.5) / 127.5
                     blob = np.expand_dims(np.expand_dims(normalized, axis=0), axis=0)
                     
-                    # Run inference
                     emotion_net.setInput(blob)
                     preds = emotion_net.forward()
-                    
-                    # The ONNX model already outputs softmax probabilities
                     scores = preds[0]
                     
-                    # Map raw scores to the target 7 emotions
                     current_scores = {
-                        'neutral': float(scores[0] + scores[7]) * 100,  # Combine neutral and contempt
+                        'neutral': float(scores[0] + scores[7]) * 100,
                         'happy': float(scores[1]) * 100,
                         'surprise': float(scores[2]) * 100,
                         'sad': float(scores[3]) * 100,
@@ -228,7 +292,6 @@ def generate_frames():
                         'fear': float(scores[6]) * 100
                     }
                     
-                    # Smooth scores over the rolling window
                     scores_history.append(current_scores)
                     emotion_scores = {}
                     for key in current_scores.keys():
@@ -237,7 +300,6 @@ def generate_frames():
                     emotion = max(emotion_scores, key=emotion_scores.get)
                     emotion_intensity = max(emotion_scores.values())
                     
-                    # Keep 'cry' for internal tracking/database, but display 'sad' to the user
                     display_emotion = 'sad' if emotion in ['sad', 'cry'] else emotion
                     counter_emotion = 'cry' if emotion == 'sad' else emotion
                     
@@ -259,37 +321,34 @@ def generate_frames():
                             'intensity': emotion_intensity
                         })
                     
-                    # Annotate the frame with bounding box and emotion
-                    cv2.putText(frame, f'Emotion: {display_emotion}', (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.8, (0, 255, 0), 2)
+                    main_color = EMOTION_COLORS.get(display_emotion, (0, 255, 0))
+
+                    # Bounding box around face
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), main_color, 2)
+                    
+                    # Annotate top emotion with high-contrast styled card
+                    label_y = max(35, y - 10)
+                    draw_styled_text(frame, f'Emotion: {display_emotion.upper()}', (x, label_y), font_scale=0.75, text_color=main_color)
                     
                     # Show top 3 emotions with scores
-                    y_offset = y + h + 25
-                    sorted_emotions = sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True)[:3]
+                    y_offset = min(frame.shape[0] - 20, y + h + 30)
+                    sorted_emotions = sorted(emotion_scores.items(), key=lambda item: item[1], reverse=True)[:3]
                     for emo, score in sorted_emotions:
                         display_emo = 'sad' if emo in ['sad', 'cry'] else emo
-                        cv2.putText(frame, f'{display_emo}: {score:.1f}%', (x, y_offset),
-                                   cv2.FONT_HERSHEY_SIMPLEX,
-                                   0.5, (255, 255, 0), 1)
-                        y_offset += 20
+                        emo_color = EMOTION_COLORS.get(display_emo, (255, 255, 255))
+                        draw_styled_text(frame, f'{display_emo.capitalize()}: {score:.1f}%', (x, y_offset), font_scale=0.55, text_color=emo_color)
+                        y_offset += 28
                 else:
-                    scores_history.clear()  # Clear history buffer when no face is detected
-                    cv2.putText(frame, 'No face detected', (30, 40),
-                               cv2.FONT_HERSHEY_SIMPLEX,
-                               0.7, (0, 0, 255), 2)
+                    scores_history.clear()
+                    draw_styled_text(frame, 'No face detected', (30, 45), font_scale=0.75, text_color=(50, 50, 255))
             except Exception as e:
                 logger.error(f"Error in ONNX fallback: {e}")
-                cv2.putText(frame, 'Analysis Error', (30, 40),
-                           cv2.FONT_HERSHEY_SIMPLEX,
-                           0.7, (0, 0, 255), 2)
+                draw_styled_text(frame, 'Analysis Error', (30, 45), font_scale=0.75, text_color=(50, 50, 255))
         else:
-            # Fallback if no models are available
-            cv2.putText(frame, 'Emotion Engine Offline', (30, 40),
-                       cv2.FONT_HERSHEY_SIMPLEX,
-                       0.8, (0, 255, 255), 2)
+            draw_styled_text(frame, 'Emotion Engine Offline', (30, 45), font_scale=0.75, text_color=(0, 255, 255))
 
-        ret, buffer = cv2.imencode('.jpg', frame)
+        # Encode JPEG at 80% quality for fast network transmission (0 lag)
+        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         frame = buffer.tobytes()
 
         yield (b'--frame\r\n'
@@ -316,19 +375,151 @@ def dashboard():
                            total=total_detections,
                            duration=str(session_duration).split('.')[0])
 
+MOOD_RECOMMENDATIONS = {
+    'happy': {
+        'quote': 'Keep smiling, because life is a beautiful thing and there is so much to smile about!',
+        'music_title': 'Sunshine & Upbeat Vibes',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DXdPec7aLTmlC',
+        'icon': '😊',
+        'color': '#f59e0b'
+    },
+    'cry': {
+        'quote': 'Tears come from the heart and not from the brain. It is okay to feel sad — brighter days are ahead!',
+        'music_title': 'Soft Comforting Acoustic & Lo-Fi Chill',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX3RXVfIviKfi',
+        'icon': '😢',
+        'color': '#3b82f6'
+    },
+    'sad': {
+        'quote': 'Tears come from the heart and not from the brain. It is okay to feel sad — brighter days are ahead!',
+        'music_title': 'Soft Comforting Acoustic & Lo-Fi Chill',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX3RXVfIviKfi',
+        'icon': '😔',
+        'color': '#6366f1'
+    },
+    'angry': {
+        'quote': 'For every minute you remain angry, you give up sixty seconds of peace of mind. Take a deep breath.',
+        'music_title': 'Calming Nature Rain & Meditation Beats',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DWVS1aZ3wW4Fy',
+        'icon': '😠',
+        'color': '#ef4444'
+    },
+    'surprise': {
+        'quote': 'Expect the unexpected! Life is full of delightful surprises and exciting moments.',
+        'music_title': 'Electrifying Energy & High Tempo Beats',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX84jKl2jrMs9',
+        'icon': '😮',
+        'color': '#8b5cf6'
+    },
+    'fear': {
+        'quote': 'Courage is not the absence of fear, but the triumph over it. Stay strong!',
+        'music_title': 'Soothing Classical Piano & Anti-Anxiety',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO',
+        'icon': '😨',
+        'color': '#ec4899'
+    },
+    'disgust': {
+        'quote': 'Focus your attention on things that bring clarity, joy, and peace of mind.',
+        'music_title': 'Fresh Ambient Chillout',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX4WYAsPMeE4W',
+        'icon': '🤢',
+        'color': '#10b981'
+    },
+    'neutral': {
+        'quote': 'A peaceful mind produces a powerful, steady life. Stay balanced!',
+        'music_title': 'Deep Focus & Study Instrumentals',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX8NTLI2TtZa6',
+        'icon': '😐',
+        'color': '#6b7280'
+    }
+}
+
 # API Endpoints
 @app.route('/api/emotions')
 def api_emotions():
-    """Get current emotion statistics"""
+    """Get current emotion statistics & live mood recommendations"""
     with lock:
+        total = sum(emotion_counter.values())
+        dominant = emotion_counter.most_common(1)[0][0] if emotion_counter else 'neutral'
+        rec = MOOD_RECOMMENDATIONS.get(dominant, MOOD_RECOMMENDATIONS['neutral'])
+        
+        # Calculate percentage breakdown
+        breakdown = {}
+        for emo, count in emotion_counter.items():
+            breakdown[emo] = round((count / total * 100), 1) if total > 0 else 0
+
         data = {
             'emotions': dict(emotion_counter),
-            'total_detections': sum(emotion_counter.values()),
+            'total_detections': total,
+            'dominant_emotion': dominant,
+            'confidence': breakdown.get(dominant, 0) if total > 0 else 100,
+            'breakdown_percentages': breakdown,
+            'recommendation': rec,
             'session_start': session_start_time.isoformat(),
             'session_duration': str(datetime.datetime.now() - session_start_time).split('.')[0],
             'timestamp': datetime.datetime.now().isoformat()
         }
     return jsonify(data)
+
+@app.route('/api/snapshot', methods=['POST'])
+def api_snapshot():
+    """Capture current frame and save to snapshots gallery"""
+    global current_frame
+    with lock:
+        if current_frame is None or current_frame.size == 0:
+            # Create high-contrast fallback card snapshot
+            blank = np.zeros((480, 640, 3), np.uint8)
+            blank[:] = (20, 25, 40)
+            dominant = emotion_counter.most_common(1)[0][0] if emotion_counter else 'neutral'
+            draw_styled_text(blank, 'EmotiSense Snapshot', (30, 180), font_scale=0.9, text_color=(255, 255, 255))
+            draw_styled_text(blank, f'Dominant Mood: {dominant.upper()}', (30, 240), font_scale=0.8, text_color=(0, 255, 255))
+            draw_styled_text(blank, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), (30, 300), font_scale=0.6, text_color=(200, 200, 200))
+            frame_to_use = blank
+        else:
+            frame_to_use = current_frame.copy()
+            dominant = emotion_counter.most_common(1)[0][0] if emotion_counter else 'neutral'
+
+        ret, buf = cv2.imencode('.jpg', frame_to_use, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+        if ret:
+            b64_str = base64.b64encode(buf).decode('utf-8')
+            img_data = f"data:image/jpeg;base64,{b64_str}"
+            
+            snap = {
+                'id': len(saved_snapshots) + 1,
+                'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'emotion': dominant,
+                'image': img_data
+            }
+            saved_snapshots.insert(0, snap)
+            if len(saved_snapshots) > 30:
+                saved_snapshots.pop()
+            return jsonify({'success': True, 'snapshot': snap})
+        else:
+            return jsonify({'success': False, 'message': 'Encoding failed'}), 500
+
+@app.route('/api/snapshots', methods=['GET'])
+def api_snapshots():
+    """Get all captured snapshots"""
+    with lock:
+        return jsonify({'success': True, 'snapshots': saved_snapshots})
+
+@app.route('/report/print')
+def report_print():
+    """Printable PDF session report"""
+    with lock:
+        total = sum(emotion_counter.values())
+        dominant = emotion_counter.most_common(1)[0][0] if emotion_counter else 'neutral'
+        duration = str(datetime.datetime.now() - session_start_time).split('.')[0]
+        stats = dict(emotion_counter)
+        history_log = list(emotion_history[-20:])
+    return render_template('report.html',
+                           date=datetime.datetime.now(),
+                           session_start=session_start_time,
+                           duration=duration,
+                           total=total,
+                           dominant=dominant,
+                           stats=stats,
+                           history=history_log)
 
 @app.route('/api/history')
 def api_history():
@@ -499,50 +690,6 @@ def api_recommendations():
     recommendation['emotion'] = dominant_emotion
     
     return jsonify(recommendation)
-
-@app.route('/api/snapshot', methods=['POST'])
-def api_snapshot():
-    """Capture current frame as snapshot"""
-    global current_frame, saved_snapshots
-    
-    with lock:
-        if current_frame is None:
-            return jsonify({'success': False, 'message': 'No frame available'}), 400
-        
-        # Encode frame to base64
-        _, buffer = cv2.imencode('.jpg', current_frame)
-        img_base64 = base64.b64encode(buffer).decode('utf-8')
-        
-        # Get current emotion if available
-        current_emotion = emotion_counter.most_common(1)[0][0] if emotion_counter else 'unknown'
-        
-        snapshot_data = {
-            'id': len(saved_snapshots) + 1,
-            'timestamp': datetime.datetime.now().isoformat(),
-            'emotion': current_emotion,
-            'image': f'data:image/jpeg;base64,{img_base64}'
-        }
-        
-        saved_snapshots.append(snapshot_data)
-        
-        # Keep only last 20 snapshots
-        if len(saved_snapshots) > 20:
-            saved_snapshots.pop(0)
-    
-    return jsonify({
-        'success': True,
-        'message': 'Snapshot captured',
-        'snapshot': snapshot_data
-    })
-
-@app.route('/api/snapshots')
-def api_get_snapshots():
-    """Get all saved snapshots"""
-    with lock:
-        return jsonify({
-            'snapshots': saved_snapshots,
-            'count': len(saved_snapshots)
-        })
 
 @app.route('/api/notes', methods=['GET', 'POST', 'DELETE'])
 def api_notes():
@@ -727,6 +874,114 @@ def api_advanced_stats():
 def about():
     """About page with information about the technology"""
     return render_template('about.html')
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import urllib.parse
+
+FEEDBACK_FILE = Path("feedback_messages.json")
+support_messages = []
+
+# Load existing feedback from disk if present
+if FEEDBACK_FILE.exists():
+    try:
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            support_messages = json.load(f)
+    except Exception as e:
+        logger.error(f"Error loading feedback messages from disk: {e}")
+        support_messages = []
+
+def send_real_email_to_support(name, user_email, message_text):
+    """Attempt to send a real email via SMTP to mallayasaswini7@gmail.com"""
+    target_email = os.environ.get("SUPPORT_EMAIL", "mallayasaswini7@gmail.com")
+    smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "") or os.environ.get("GMAIL_APP_PASSWORD", "")
+
+    if smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = smtp_user
+            msg['To'] = target_email
+            msg['Reply-To'] = user_email
+            msg['Subject'] = f"[EmotiSense Feedback] Message from {name}"
+            
+            body = f"New EmotiSense Feedback Received:\n\nName: {name}\nEmail: {user_email}\nTimestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nMessage:\n{message_text}"
+            msg.attach(MIMEText(body, 'plain'))
+
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+            server.quit()
+            logger.info(f"Successfully sent email notification to {target_email}")
+            return True, f"Direct email sent to {target_email}!"
+        except Exception as e:
+            logger.error(f"Failed to send email via SMTP: {e}")
+            return False, str(e)
+    else:
+        logger.info("No SMTP credentials configured. Saved to feedback_messages.json.")
+        return False, "SMTP not configured"
+
+@app.route('/api/support', methods=['POST'])
+def send_support_message():
+    """Receive user support message, save to disk, attempt email delivery, and return Gmail compose link"""
+    try:
+        data = request.get_json() or {}
+        name = data.get('name', 'Anonymous').strip()
+        email = data.get('email', '').strip()
+        message = data.get('message', '').strip()
+        
+        if not message:
+            return jsonify({'success': False, 'message': 'Message body cannot be empty'}), 400
+            
+        entry = {
+            'timestamp': datetime.datetime.now().isoformat(),
+            'name': name,
+            'email': email,
+            'message': message
+        }
+        
+        support_messages.append(entry)
+        
+        # Save to disk
+        try:
+            with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+                json.dump(support_messages, f, indent=2)
+        except Exception as err:
+            logger.error(f"Failed to save feedback to disk: {err}")
+            
+        logger.info(f"Support request received from {name} <{email}>: {message[:50]}...")
+        
+        # Attempt direct SMTP email sending
+        sent_smtp, smtp_status = send_real_email_to_support(name, email, message)
+        
+        # Construct Gmail compose URL as fail-safe guarantee
+        target_email = "mallayasaswini7@gmail.com"
+        subject_enc = urllib.parse.quote(f"EmotiSense Feedback from {name}")
+        body_enc = urllib.parse.quote(f"From: {name} ({email})\n\nFeedback Message:\n{message}")
+        gmail_compose_url = f"https://mail.google.com/mail/?view=cm&fs=1&to={target_email}&su={subject_enc}&body={body_enc}"
+
+        if sent_smtp:
+            return jsonify({
+                'success': True, 
+                'message': f'Feedback delivered directly to {target_email}!',
+                'gmail_url': gmail_compose_url,
+                'email_sent': True
+            })
+        else:
+            return jsonify({
+                'success': True, 
+                'message': f'Feedback saved! Opening Gmail compose for {target_email}...',
+                'gmail_url': gmail_compose_url,
+                'email_sent': False
+            })
+            
+    except Exception as e:
+        logger.error(f"Error handling support message: {e}")
+        return jsonify({'success': False, 'message': 'Failed to process message'}), 500
 
 @app.route('/help')
 def help_page():

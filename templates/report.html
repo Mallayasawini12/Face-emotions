@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmotiSense - Session Analytics Report</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #1e293b;
+            background: #ffffff;
+            margin: 0;
+            padding: 2rem;
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .meta-info {
+            text-align: right;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .stat-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            background: #f8fafc;
+        }
+        .stat-val {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .stat-lbl {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+        th, td {
+            padding: 0.85rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 700;
+            color: #334155;
+        }
+        .print-btn-bar {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .btn {
+            background: #4f46e5;
+            color: #ffffff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+        @media print {
+            .print-btn-bar { display: none; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-btn-bar">
+        <button onclick="window.print()" class="btn">
+            <i class="fas fa-print"></i> Print / Save as PDF
+        </button>
+        <a href="/dashboard" class="btn" style="background: #64748b;">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="report-header">
+        <div class="logo">
+            <i class="fas fa-brain"></i> EmotiSense AI
+        </div>
+        <div class="meta-info">
+            <div><strong>Report Date:</strong> {{ date.strftime('%B %d, %Y %I:%M %p') }}</div>
+            <div><strong>Session Start:</strong> {{ session_start.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+        </div>
+    </div>
+
+    <h2>Session Summary</h2>
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="stat-val">{{ total }}</div>
+            <div class="stat-lbl">Total Detections</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" style="text-transform: capitalize;">{{ dominant }}</div>
+            <div class="stat-lbl">Dominant Emotion</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val">{{ duration }}</div>
+            <div class="stat-lbl">Session Duration</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val">{{ stats.keys() | list | length }}</div>
+            <div class="stat-lbl">Unique Emotions</div>
+        </div>
+    </div>
+
+    <h2>Emotion Distribution Breakdown</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Emotion</th>
+                <th>Detection Count</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emo, cnt in stats.items() %}
+            <tr>
+                <td style="text-transform: capitalize; font-weight: 600;">{{ emo }}</td>
+                <td>{{ cnt }}</td>
+                <td>{{ "%.1f" | format((cnt / total * 100) if total > 0 else 0) }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if history %}
+    <h2>Recent Telemetry Log</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Detected Emotion</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in history %}
+            <tr>
+                <td>{{ item.timestamp }}</td>
+                <td style="text-transform: capitalize;">{{ item.emotion }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div style="margin-top: 3rem; text-align: center; font-size: 0.85rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+        Generated automatically by EmotiSense AI Facial Emotion Recognition System &copy; 2026
+    </div>
+</body>
+</html>

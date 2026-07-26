@@ -179,7 +179,7 @@ Contributions, issues, and feature requests are welcome!
 
 ## 📧 Support
 
-For support, email support@emotisense.com or visit the Help page in the application.
+For support, email mallayasaswini7@gmail.com or visit the Help page in the application.
 
 ## 🙏 Acknowledgments
 

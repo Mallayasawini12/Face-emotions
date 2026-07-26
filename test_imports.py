@@ -4,56 +4,57 @@ print("Testing package imports...\n")
 
 try:
     import flask
-    print("✓ Flask")
+    print("[OK] Flask")
 except Exception as e:
-    print(f"✗ Flask: {e}")
+    print(f"[FAIL] Flask: {e}")
 
 try:
     import cv2
-    print("✓ OpenCV")
+    print("[OK] OpenCV")
 except Exception as e:
-    print(f"✗ OpenCV: {e}")
+    print(f"[FAIL] OpenCV: {e}")
 
 try:
     import numpy
-    print("✓ NumPy")
+    print("[OK] NumPy")
 except Exception as e:
-    print(f"✗ NumPy: {e}")
+    print(f"[FAIL] NumPy: {e}")
 
 try:
     import pandas
-    print("✓ Pandas")
+    print("[OK] Pandas")
 except Exception as e:
-    print(f"✗ Pandas: {e}")
+    print(f"[FAIL] Pandas: {e}")
 
 try:
     import matplotlib
-    print("✓ Matplotlib")
+    print("[OK] Matplotlib")
 except Exception as e:
-    print(f"✗ Matplotlib: {e}")
+    print(f"[FAIL] Matplotlib: {e}")
 
 try:
     import sklearn
-    print("✓ Scikit-learn")
+    print("[OK] Scikit-learn")
 except Exception as e:
-    print(f"✗ Scikit-learn: {e}")
+    print(f"[FAIL] Scikit-learn: {e}")
 
 try:
     import seaborn
-    print("✓ Seaborn")
+    print("[OK] Seaborn")
 except Exception as e:
-    print(f"✗ Seaborn: {e}")
+    print(f"[FAIL] Seaborn: {e}")
 
 try:
     import tensorflow as tf
-    print(f"✓ TensorFlow {tf.__version__}")
+    print(f"[OK] TensorFlow {tf.__version__}")
 except Exception as e:
-    print(f"✗ TensorFlow: {e}")
+    print(f"[FAIL] TensorFlow: {e}")
 
 try:
     import keras
-    print(f"✓ Keras {keras.__version__}")
+    print(f"[OK] Keras {keras.__version__}")
 except Exception as e:
-    print(f"✗ Keras: {e}")
+    print(f"[FAIL] Keras: {e}")
 
-print("\n✅ Package testing complete!")
+print("\n[OK] Package testing complete!")
+
