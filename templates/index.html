@@ -306,26 +306,29 @@
             const overlay = document.getElementById('camPromptOverlay');
             const btn = document.getElementById('camToggleBtn');
 
+            // Hide overlay & img immediately on click for instant response
+            if (overlay) overlay.style.display = 'none';
+            if (img) img.style.display = 'none';
+            if (video) video.style.display = 'block';
+
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
+                navigator.mediaDevices.getUserMedia({ video: true })
                     .then(stream => {
-                        if (img) img.style.display = 'none';
-                        if (overlay) overlay.style.display = 'none';
                         if (video) {
-                            video.style.display = 'block';
                             video.srcObject = stream;
-                            video.play().catch(e => console.log("Play error:", e));
+                            video.onloadedmetadata = () => {
+                                video.play().catch(e => console.log("Play error:", e));
+                            };
                         }
                         if (btn) btn.innerHTML = '<i class="fas fa-video" style="color:var(--success);"></i> Camera Active';
                     })
                     .catch(err => {
-                        if (overlay) overlay.style.display = 'flex';
-                        if (img) img.style.display = 'none';
                         console.warn("Browser camera access error:", err);
+                        if (overlay) overlay.style.display = 'flex';
+                        alert("Camera Error: " + (err.message || "Please grant camera permission in your browser settings."));
                     });
             } else {
-                if (overlay) overlay.style.display = 'flex';
-                if (img) img.style.display = 'none';
+                alert("Camera API not supported in this browser.");
             }
         }
 
