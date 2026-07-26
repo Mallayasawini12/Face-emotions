@@ -133,7 +133,8 @@
             <div class="video-container">
                 <div class="video-wrapper" id="videoWrapper">
                     <div class="video-frame" id="videoFrame">
-                        <img src="{{ url_for('video') }}" alt="Live emotion detection feed" id="videoFeedImg">
+                        <img src="{{ url_for('video') }}" alt="Live emotion detection feed" id="videoFeedImg" onerror="enableClientWebcam()">
+                        <video id="clientWebcamVideo" autoplay playsinline style="display: none; width: 100%; height: auto; max-height: 75vh; object-fit: contain; border-radius: var(--radius-md);"></video>
                         <div class="video-overlay">
                             <div class="corner-decoration top-left"></div>
                             <div class="corner-decoration top-right"></div>
@@ -277,6 +278,33 @@
             updateThemeToggleIcon(currentTheme);
             fetchSnapshots();
         });
+
+        // 📷 Client-Side Webcam Fallback for Vercel Cloud Deployment
+        function enableClientWebcam() {
+            const img = document.getElementById('videoFeedImg');
+            const video = document.getElementById('clientWebcamVideo');
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        if (img) img.style.display = 'none';
+                        if (video) {
+                            video.style.display = 'block';
+                            video.srcObject = stream;
+                        }
+                    })
+                    .catch(err => {
+                        console.warn("Browser camera access denied or unavailable:", err);
+                    });
+            }
+        }
+
+        // Auto-detect Vercel/Cloud deployment domain
+        if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('render.com') || window.location.hostname.includes('netlify')) {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(enableClientWebcam, 500);
+            });
+        }
 
         // 🎙️ Voice Audio Feedback (Text-To-Speech)
         let voiceEnabled = false;
