@@ -135,9 +135,26 @@
             <!-- HUD Video Container -->
             <div class="video-container">
                 <div class="video-wrapper" id="videoWrapper">
-                    <div class="video-frame" id="videoFrame">
+                    <div class="video-frame" id="videoFrame" style="position: relative;">
                         <img src="{{ url_for('video') }}" alt="Live emotion detection feed" id="videoFeedImg" onerror="enableClientWebcam()">
                         <video id="clientWebcamVideo" autoplay playsinline muted style="display: none; width: 100%; height: 100%; min-height: 400px; object-fit: contain; border-radius: var(--radius-md);"></video>
+                        
+                        <!-- Vercel/Cloud Camera Prompt Overlay -->
+                        <div id="camPromptOverlay" style="display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.94); z-index: 10; border-radius: var(--radius-md); flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; gap: 1.25rem;">
+                            <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(79, 70, 229, 0.2); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 2.2rem;">
+                                <i class="fas fa-camera"></i>
+                            </div>
+                            <div>
+                                <h3 style="font-size: 1.4rem; color: #ffffff; margin-bottom: 0.5rem; font-weight: 800;">Browser Camera Access Required</h3>
+                                <p style="color: #94a3b8; max-width: 450px; margin: 0 auto; line-height: 1.6; font-size: 0.95rem;">
+                                    To view live facial emotion detection on Vercel, allow camera access in your browser or click the button below.
+                                </p>
+                            </div>
+                            <button onclick="enableClientWebcam()" class="btn btn-primary" style="padding: 0.85rem 2.2rem; font-size: 1.05rem;">
+                                <i class="fas fa-video"></i> Start Browser Camera
+                            </button>
+                        </div>
+
                         <div class="video-overlay">
                             <div class="corner-decoration top-left"></div>
                             <div class="corner-decoration top-right"></div>
@@ -286,12 +303,14 @@
         function enableClientWebcam() {
             const img = document.getElementById('videoFeedImg');
             const video = document.getElementById('clientWebcamVideo');
+            const overlay = document.getElementById('camPromptOverlay');
             const btn = document.getElementById('camToggleBtn');
 
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
                     .then(stream => {
                         if (img) img.style.display = 'none';
+                        if (overlay) overlay.style.display = 'none';
                         if (video) {
                             video.style.display = 'block';
                             video.srcObject = stream;
@@ -300,18 +319,26 @@
                         if (btn) btn.innerHTML = '<i class="fas fa-video" style="color:var(--success);"></i> Camera Active';
                     })
                     .catch(err => {
-                        alert("Camera Access Required: Please click 'Allow' in your browser to enable the live video feed.");
+                        if (overlay) overlay.style.display = 'flex';
+                        if (img) img.style.display = 'none';
                         console.warn("Browser camera access error:", err);
                     });
             } else {
-                alert("Camera API not supported in this browser.");
+                if (overlay) overlay.style.display = 'flex';
+                if (img) img.style.display = 'none';
             }
         }
 
         // Auto-initialize camera on Vercel or cloud domains
         document.addEventListener('DOMContentLoaded', () => {
             const host = window.location.hostname;
-            if (host.includes('vercel.app') || host.includes('render.com') || host.includes('netlify') || window.location.protocol === 'https:') {
+            const isCloud = host.includes('vercel.app') || host.includes('render.com') || host.includes('netlify') || window.location.protocol === 'https:';
+
+            if (isCloud) {
+                const img = document.getElementById('videoFeedImg');
+                const overlay = document.getElementById('camPromptOverlay');
+                if (img) img.style.display = 'none';
+                if (overlay) overlay.style.display = 'flex';
                 setTimeout(enableClientWebcam, 200);
             }
         });
