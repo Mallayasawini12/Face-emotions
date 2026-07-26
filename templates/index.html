@@ -66,6 +66,9 @@
                 </div>
 
                 <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                    <button onclick="enableClientWebcam()" class="btn btn-secondary" id="camToggleBtn" style="padding: 0.55rem 1.15rem; font-size: 0.875rem;">
+                        <i class="fas fa-video" style="color: var(--success);"></i> Turn On Camera
+                    </button>
                     <button onclick="takeSnapshot()" class="btn btn-secondary" style="padding: 0.55rem 1.15rem; font-size: 0.875rem;">
                         <i class="fas fa-camera" style="color: var(--primary);"></i> Take Snapshot
                     </button>
@@ -283,6 +286,7 @@
         function enableClientWebcam() {
             const img = document.getElementById('videoFeedImg');
             const video = document.getElementById('clientWebcamVideo');
+            const btn = document.getElementById('camToggleBtn');
 
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
@@ -293,17 +297,22 @@
                             video.srcObject = stream;
                             video.play().catch(e => console.log("Play error:", e));
                         }
+                        if (btn) btn.innerHTML = '<i class="fas fa-video" style="color:var(--success);"></i> Camera Active';
                     })
                     .catch(err => {
+                        alert("Camera Access Required: Please click 'Allow' in your browser to enable the live video feed.");
                         console.warn("Browser camera access error:", err);
                     });
+            } else {
+                alert("Camera API not supported in this browser.");
             }
         }
 
-        // Auto-detect Vercel/Cloud deployment domain
+        // Auto-initialize camera on Vercel or cloud domains
         document.addEventListener('DOMContentLoaded', () => {
-            if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('render.com') || window.location.hostname.includes('netlify')) {
-                setTimeout(enableClientWebcam, 300);
+            const host = window.location.hostname;
+            if (host.includes('vercel.app') || host.includes('render.com') || host.includes('netlify') || window.location.protocol === 'https:') {
+                setTimeout(enableClientWebcam, 200);
             }
         });
 
