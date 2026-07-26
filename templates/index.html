@@ -146,8 +146,9 @@
                             </div>
                             <div>
                                 <h3 style="font-size: 1.4rem; color: #ffffff; margin-bottom: 0.5rem; font-weight: 800;">Browser Camera Access Required</h3>
-                                <p style="color: #94a3b8; max-width: 450px; margin: 0 auto; line-height: 1.6; font-size: 0.95rem;">
-                                    To view live facial emotion detection on Vercel, allow camera access in your browser or click the button below.
+                                <p style="color: #94a3b8; max-width: 480px; margin: 0 auto; line-height: 1.6; font-size: 0.95rem;">
+                                    To view live facial emotion detection on Vercel, allow camera access. <br>
+                                    <span style="color: #f59e0b; font-size: 0.85rem;"><i class="fas fa-exclamation-triangle"></i> Windows Note: Close local Python server or other camera tabs if your webcam is busy.</span>
                                 </p>
                             </div>
                             <button onclick="enableClientWebcam()" class="btn btn-primary" style="padding: 0.85rem 2.2rem; font-size: 1.05rem;">
@@ -325,10 +326,15 @@
                     .catch(err => {
                         console.warn("Browser camera access error:", err);
                         if (overlay) overlay.style.display = 'flex';
-                        alert("Camera Error: " + (err.message || "Please grant camera permission in your browser settings."));
+                        
+                        let msg = err.message || "Please grant camera permission in your browser settings.";
+                        if (err.name === 'NotReadableError' || msg.includes('Could not start video source') || msg.includes('in use')) {
+                            msg = "Webcam is currently in use by another application (e.g. your local Python app.py server, Zoom, or another tab). Close the other camera application and click 'Start Browser Camera'.";
+                        }
+                        alert("Camera Notice: " + msg);
                     });
             } else {
-                alert("Camera API not supported in this browser.");
+                alert("Camera API is not supported by your browser.");
             }
         }
 
