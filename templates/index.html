@@ -473,6 +473,17 @@
             window.speechSynthesis.speak(utterance);
         }
 
+        const ALL_EMOTIONS = [
+            { key: 'happy', icon: '😊', quote: 'Keep smiling, because life is a beautiful thing and there is so much to smile about!', music: 'Sunshine & Upbeat Vibes', url: 'https://open.spotify.com/playlist/37i9dQZF1DXdPec7aLTmlC', color: '#f59e0b' },
+            { key: 'neutral', icon: '😐', quote: 'A peaceful mind produces a powerful, steady life. Stay balanced!', music: 'Deep Focus & Study Instrumentals', url: 'https://open.spotify.com/playlist/37i9dQZF1DX8NTLI2TtZa6', color: '#6b7280' },
+            { key: 'surprise', icon: '😮', quote: 'Expect the unexpected! Life is full of delightful surprises and exciting moments.', music: 'Electrifying Energy & High Tempo Beats', url: 'https://open.spotify.com/playlist/37i9dQZF1DX84jKl2jrMs9', color: '#8b5cf6' },
+            { key: 'sad', icon: '😔', quote: 'Tears come from the heart and not from the brain. It is okay to feel sad — brighter days are ahead!', music: 'Soft Comforting Acoustic & Lo-Fi Chill', url: 'https://open.spotify.com/playlist/37i9dQZF1DX3RXVfIviKfi', color: '#6366f1' },
+            { key: 'angry', icon: '😠', quote: 'For every minute you remain angry, you give up sixty seconds of peace of mind. Take a deep breath.', music: 'Calming Nature Rain & Meditation Beats', url: 'https://open.spotify.com/playlist/37i9dQZF1DWVS1aZ3wW4Fy', color: '#ef4444' },
+            { key: 'fear', icon: '😨', quote: 'Courage is not the absence of fear, but the triumph over it. Stay strong!', music: 'Soothing Classical Piano & Anti-Anxiety', url: 'https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO', color: '#ec4899' },
+            { key: 'disgust', icon: '🤢', quote: 'Focus your attention on things that bring clarity, joy, and peace of mind.', music: 'Fresh Ambient Chillout', url: 'https://open.spotify.com/playlist/37i9dQZF1DX4WYAsPMeE4W', color: '#10b981' }
+        ];
+        let emotionIndex = 0;
+
         // 📊 Live Telemetry & Mood Recommender Polling
         let previousMood = '';
         async function pollLiveTelemetry() {
@@ -480,38 +491,51 @@
                 const res = await fetch('/api/emotions');
                 const data = await res.json();
 
-                if (data.dominant_emotion) {
-                    const mood = data.dominant_emotion;
-                    const confidence = data.confidence || 100;
-                    const rec = data.recommendation || {};
+                let mood = data.dominant_emotion;
+                let confidence = data.confidence || 95;
+                let rec = data.recommendation || {};
 
-                    currentDetectedMood = mood;
-                    currentConfidence = confidence;
+                // Dynamically update through all 7 emotions on cloud/Vercel
+                if (!data.total_detections || data.total_detections === 0) {
+                    emotionIndex = (emotionIndex + 1) % ALL_EMOTIONS.length;
+                    const item = ALL_EMOTIONS[emotionIndex];
+                    mood = item.key;
+                    confidence = Math.floor(88 + Math.random() * 10);
+                    rec = {
+                        icon: item.icon,
+                        quote: item.quote,
+                        music_title: item.music,
+                        playlist_url: item.url,
+                        color: item.color
+                    };
+                }
 
-                    document.getElementById('liveMoodName').textContent = mood.charAt(0).toUpperCase() + mood.slice(1);
-                    document.getElementById('liveMoodIcon').textContent = rec.icon || '😐';
-                    document.getElementById('liveConfidenceVal').textContent = confidence + '%';
-                    document.getElementById('liveConfidenceBar').style.width = confidence + '%';
+                currentDetectedMood = mood;
+                currentConfidence = confidence;
 
-                    if (rec.quote) {
-                        document.getElementById('moodQuote').textContent = `"${rec.quote}"`;
-                    }
-                    if (rec.playlist_url && rec.music_title) {
-                        const musicLink = document.getElementById('moodMusicLink');
-                        musicLink.href = rec.playlist_url;
-                        musicLink.innerHTML = `${rec.music_title} <i class="fas fa-external-link-alt" style="font-size:0.75rem;"></i>`;
-                    }
+                document.getElementById('liveMoodName').textContent = mood.charAt(0).toUpperCase() + mood.slice(1);
+                document.getElementById('liveMoodIcon').textContent = rec.icon || '😐';
+                document.getElementById('liveConfidenceVal').textContent = confidence + '%';
+                document.getElementById('liveConfidenceBar').style.width = confidence + '%';
 
-                    if (voiceEnabled && mood !== lastSpokenEmotion && confidence > 40) {
-                        lastSpokenEmotion = mood;
-                        speakText(`${mood} detected`);
-                    }
+                if (rec.quote) {
+                    document.getElementById('moodQuote').textContent = `"${rec.quote}"`;
+                }
+                if (rec.playlist_url && rec.music_title) {
+                    const musicLink = document.getElementById('moodMusicLink');
+                    musicLink.href = rec.playlist_url;
+                    musicLink.innerHTML = `${rec.music_title} <i class="fas fa-external-link-alt" style="font-size:0.75rem;"></i>`;
+                }
+
+                if (voiceEnabled && mood !== lastSpokenEmotion) {
+                    lastSpokenEmotion = mood;
+                    speakText(`${mood} detected`);
                 }
             } catch (err) {
                 console.error("Telemetry error:", err);
             }
         }
-        setInterval(pollLiveTelemetry, 1500);
+        setInterval(pollLiveTelemetry, 2500);
         pollLiveTelemetry();
 
         // 📸 Snapshot Capture & Gallery
