@@ -321,21 +321,39 @@
                 const h = canvas.height;
                 ctx.clearRect(0, 0, w, h);
 
-                // Dynamic face bounding box calculation based on detected face or center box
-                let boxX, boxY, boxWidth, boxHeight;
+                // Dynamic face bounding box calculation with silky 60 FPS LERP smoothing
+                let targetX, targetY, targetWidth, targetHeight;
                 if (activeFaceBox && activeFaceBox.w > 0) {
-                    const scaleX = w / 320.0;
-                    const scaleY = h / 240.0;
-                    boxX = activeFaceBox.x * scaleX;
-                    boxY = activeFaceBox.y * scaleY;
-                    boxWidth = activeFaceBox.w * scaleX;
-                    boxHeight = activeFaceBox.h * scaleY;
+                    const scaleX = w / 160.0;
+                    const scaleY = h / 120.0;
+                    targetX = activeFaceBox.x * scaleX;
+                    targetY = activeFaceBox.y * scaleY;
+                    targetWidth = activeFaceBox.w * scaleX;
+                    targetHeight = activeFaceBox.h * scaleY;
                 } else {
-                    boxWidth = Math.min(w * 0.42, 250);
-                    boxHeight = boxWidth * 1.25;
-                    boxX = (w - boxWidth) / 2;
-                    boxY = (h - boxHeight) / 2 - 10;
+                    targetWidth = Math.min(w * 0.42, 250);
+                    targetHeight = targetWidth * 1.25;
+                    targetX = (w - targetWidth) / 2;
+                    targetY = (h - targetHeight) / 2 - 10;
                 }
+
+                // Smooth LERP (Linear Interpolation) for 0ms lag & 0 jitter
+                if (smoothedBox.w === 0) {
+                    smoothedBox.x = targetX;
+                    smoothedBox.y = targetY;
+                    smoothedBox.w = targetWidth;
+                    smoothedBox.h = targetHeight;
+                } else {
+                    smoothedBox.x += (targetX - smoothedBox.x) * 0.22;
+                    smoothedBox.y += (targetY - smoothedBox.y) * 0.22;
+                    smoothedBox.w += (targetWidth - smoothedBox.w) * 0.22;
+                    smoothedBox.h += (targetHeight - smoothedBox.h) * 0.22;
+                }
+
+                const boxX = smoothedBox.x;
+                const boxY = smoothedBox.y;
+                const boxWidth = smoothedBox.w;
+                const boxHeight = smoothedBox.h;
 
                 // Glowing Cyan HUD Bounding Box
                 ctx.strokeStyle = '#00f2fe';
@@ -385,17 +403,24 @@
         }
 
         let activeFaceBox = null;
+        let smoothedBox = { x: 0, y: 0, w: 0, h: 0 };
+        
+        // Single reusable canvas & context (zero garbage collection lag)
+        const _predictCanvas = document.createElement('canvas');
+        _predictCanvas.width = 160;
+        _predictCanvas.height = 120;
+        const _predictCtx = _predictCanvas.getContext('2d', { alpha: false });
+        let isPredicting = false;
+
         async function captureAndPredictFrame() {
+            if (isPredicting) return;
             const video = document.getElementById('clientWebcamVideo');
             if (!video || video.paused || video.ended || !video.srcObject) return;
 
+            isPredicting = true;
             try {
-                const hiddenCanvas = document.createElement('canvas');
-                hiddenCanvas.width = 320;
-                hiddenCanvas.height = 240;
-                const hctx = hiddenCanvas.getContext('2d');
-                hctx.drawImage(video, 0, 0, 320, 240);
-                const dataUrl = hiddenCanvas.toDataURL('image/jpeg', 0.7);
+                _predictCtx.drawImage(video, 0, 0, 160, 120);
+                const dataUrl = _predictCanvas.toDataURL('image/jpeg', 0.5);
 
                 const res = await fetch('/api/predict_emotion', {
                     method: 'POST',
@@ -414,9 +439,11 @@
                 }
             } catch (err) {
                 console.warn("Prediction error:", err);
+            } finally {
+                isPredicting = false;
             }
         }
-        setInterval(captureAndPredictFrame, 1200);
+        setInterval(captureAndPredictFrame, 500);
 
         function updateUIWithRecommendation(mood, confidence, rec) {
             rec = rec || {};
