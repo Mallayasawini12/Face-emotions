@@ -520,6 +520,11 @@ KAGGLE_DATASET_INFO = {
     }
 }
 
+@app.route('/dataset')
+def dataset_page():
+    """Kaggle Dataset Hub showcase page"""
+    return render_template('dataset.html')
+
 @app.route('/api/dataset')
 def api_dataset():
     """Expose Kaggle nelgiriyewithana/emotions dataset info"""

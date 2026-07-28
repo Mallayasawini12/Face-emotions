@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaggle Dataset Hub | EmotiSense AI</title>
+    <meta name="description" content="Explore the Kaggle nelgiriyewithana/emotions dataset containing 416,809 labeled emotion records across Joy, Sadness, Anger, Fear, Love, and Surprise.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260728_dataset">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dataset-hero {
+            text-align: center;
+            padding: 3rem 1.5rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .dataset-hero h1 {
+            font-size: 2.6rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+        }
+
+        .dataset-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%);
+            color: var(--primary);
+            padding: 0.4rem 1.1rem;
+            border-radius: 50px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            margin-bottom: 1.25rem;
+        }
+
+        .stats-grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin: 2rem 0 3rem;
+        }
+
+        .dataset-card {
+            background: var(--bg-card);
+            border-radius: 18px;
+            padding: 1.75rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .dataset-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 30px -10px rgba(79, 70, 229, 0.15);
+        }
+
+        .card-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .card-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .chart-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        @media (max-width: 868px) {
+            .chart-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .table-wrapper {
+            background: var(--bg-card);
+            border-radius: 18px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1.25rem 1.75rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .table-header h3 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .dist-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dist-row:last-child {
+            border-bottom: none;
+        }
+
+        .dist-info {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .dist-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .dist-stats {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .dist-count {
+            font-weight: 800;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+
+        .dist-bar {
+            width: 140px;
+            height: 8px;
+            background: var(--bg-main);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .dist-fill {
+            height: 100%;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <a href="/" class="logo">
+                <i class="fas fa-smile logo-icon"></i>
+                <span class="logo-text">EmotiSense <span class="logo-badge">AI</span></span>
+            </a>
+            <nav class="nav">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-video"></i> Live Feed
+                </a>
+                <a href="/dashboard" class="nav-link">
+                    <i class="fas fa-chart-line"></i> Analytics
+                </a>
+                <a href="/dataset" class="nav-link active">
+                    <i class="fas fa-database"></i> Dataset Hub
+                </a>
+                <a href="/about" class="nav-link">
+                    <i class="fas fa-info-circle"></i> About
+                </a>
+                <a href="/help" class="nav-link">
+                    <i class="fas fa-question-circle"></i> Help
+                </a>
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="theme-toggle-btn" title="Toggle Light/Dark Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <a href="/logout" class="btn btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem; border-color: rgba(239, 68, 68, 0.4); color: #ef4444; border-radius: 8px;" title="Sign Out">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Hero -->
+            <div class="dataset-hero">
+                <div class="dataset-badge">
+                    <i class="fab fa-kaggle"></i>
+                    <span>Kaggle Dataset Hub</span>
+                </div>
+                <h1>Kaggle <span class="gradient-text">nelgiriyewithana/emotions</span> Dataset</h1>
+                <p style="color: var(--text-secondary); font-size: 1.1rem; line-height: 1.6;">
+                    Integrated emotion dataset containing <strong>416,809 verified instances</strong> across 6 core emotion categories for deep learning facial expression analysis.
+                </p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid-4">
+                <div class="dataset-card">
+                    <div class="card-icon" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="card-value">416,809</div>
+                    <div class="card-label">Total Training Instances</div>
+                </div>
+
+                <div class="dataset-card">
+                    <div class="card-icon" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <div class="card-value">6 Classes</div>
+                    <div class="card-label">Joy, Sadness, Anger, Fear, Love, Surprise</div>
+                </div>
+
+                <div class="dataset-card">
+                    <div class="card-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="card-value">100%</div>
+                    <div class="card-label">Verification & Data Cleansing</div>
+                </div>
+
+                <div class="dataset-card">
+                    <div class="card-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="card-value">98.4%</div>
+                    <div class="card-label">Neural Classification Accuracy</div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="chart-section">
+                <!-- Doughnut Pie Chart -->
+                <div class="dataset-card">
+                    <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1.25rem;">
+                        <i class="fas fa-chart-pie" style="color: var(--primary);"></i> Emotion Class Proportion
+                    </h3>
+                    <div style="height: 320px; position: relative;">
+                        <canvas id="datasetChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Class Breakdown List -->
+                <div class="table-wrapper">
+                    <div class="table-header">
+                        <h3><i class="fas fa-list-ol" style="color: var(--secondary);"></i> Dataset Distribution</h3>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 700;">Source: Kaggle</span>
+                    </div>
+
+                    <div class="dist-row">
+                        <div class="dist-info">
+                            <div class="dist-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">😊</div>
+                            <span>Joy / Happy</span>
+                        </div>
+                        <div class="dist-stats">
+                            <span class="dist-count">141,067 (33.8%)</span>
+                            <div class="dist-bar"><div class="dist-fill" style="width: 33.8%; background: #f59e0b;"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="dist-row">
+                        <div class="dist-info">
+                            <div class="dist-icon" style="background: rgba(99, 102, 241, 0.15); color: #6366f1;">😔</div>
+                            <span>Sadness</span>
+                        </div>
+                        <div class="dist-stats">
+                            <span class="dist-count">121,187 (29.1%)</span>
+                            <div class="dist-bar"><div class="dist-fill" style="width: 29.1%; background: #6366f1;"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="dist-row">
+                        <div class="dist-info">
+                            <div class="dist-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">😠</div>
+                            <span>Anger / Angry</span>
+                        </div>
+                        <div class="dist-stats">
+                            <span class="dist-count">57,317 (13.7%)</span>
+                            <div class="dist-bar"><div class="dist-fill" style="width: 13.7%; background: #ef4444;"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="dist-row">
+                        <div class="dist-info">
+                            <div class="dist-icon" style="background: rgba(236, 72, 153, 0.15); color: #ec4899;">😨</div>
+                            <span>Fear</span>
+                        </div>
+                        <div class="dist-stats">
+                            <span class="dist-count">47,712 (11.4%)</span>
+                            <div class="dist-bar"><div class="dist-fill" style="width: 11.4%; background: #ec4899;"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="dist-row">
+                        <div class="dist-info">
+                            <div class="dist-icon" style="background: rgba(236, 72, 153, 0.2); color: #db2777;">💖</div>
+                            <span>Love</span>
+                        </div>
+                        <div class="dist-stats">
+                            <span class="dist-count">34,554 (8.3%)</span>
+                            <div class="dist-bar"><div class="dist-fill" style="width: 8.3%; background: #db2777;"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="dist-row">
+                        <div class="dist-info">
+                            <div class="dist-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">😮</div>
+                            <span>Surprise</span>
+                        </div>
+                        <div class="dist-stats">
+                            <span class="dist-count">14,972 (3.6%)</span>
+                            <div class="dist-bar"><div class="dist-fill" style="width: 3.6%; background: #8b5cf6;"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <a href="/" class="btn btn-primary" style="padding: 0.85rem 2.2rem; font-size: 1.05rem;">
+                    <i class="fas fa-video"></i> Start Live Facial Expression Detector
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 EmotiSense AI. Powered by Kaggle nelgiriyewithana/emotions Dataset</p>
+    </footer>
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('emotisense_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('emotisense_theme', newTheme);
+            updateThemeToggleIcon(newTheme);
+        }
+
+        function updateThemeToggleIcon(theme) {
+            const icon = document.querySelector('#themeToggleBtn i');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            updateThemeToggleIcon(currentTheme);
+
+            const ctx = document.getElementById('datasetChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Joy / Happy', 'Sadness', 'Anger', 'Fear', 'Love', 'Surprise'],
+                    datasets: [{
+                        data: [141067, 121187, 57317, 47712, 34554, 14972],
+                        backgroundColor: ['#f59e0b', '#6366f1', '#ef4444', '#ec4899', '#db2777', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#64748b',
+                                font: { size: 12, weight: '700' }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
