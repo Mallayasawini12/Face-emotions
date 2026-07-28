@@ -274,7 +274,8 @@ def generate_frames():
                     
                     face_roi = gray[y1:y2, x1:x2]
                     face_roi = cv2.resize(face_roi, (64, 64))
-                    
+                    # Histogram equalization for ambient lighting normalization
+                    face_roi = cv2.equalizeHist(face_roi)
                     normalized = (face_roi.astype(np.float32) - 127.5) / 127.5
                     blob = np.expand_dims(np.expand_dims(normalized, axis=0), axis=0)
                     
@@ -464,6 +465,8 @@ def predict_emotion_endpoint():
             (x, y, w, h) = max(faces, key=lambda f: f[2] * f[3])
             face_roi = gray[y:y+h, x:x+w]
             face_roi = cv2.resize(face_roi, (64, 64))
+            # Histogram equalization for ambient lighting normalization
+            face_roi = cv2.equalizeHist(face_roi)
             normalized = (face_roi.astype(np.float32) - 127.5) / 127.5
             blob = np.expand_dims(np.expand_dims(normalized, axis=0), axis=0)
 
