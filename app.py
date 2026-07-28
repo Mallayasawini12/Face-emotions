@@ -97,7 +97,7 @@ def init_camera():
 
     return None
 
-camera = init_camera()
+camera = None
 
 # Initialize face cascade and ONNX model for fallback/alternative emotion analysis
 face_cascade = None
