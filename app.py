@@ -612,18 +612,20 @@ def api_history():
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
     """Reset all emotion statistics"""
-    global emotion_counter, emotion_history, session_start_time
+    global emotion_counter, emotion_history, emotion_intensity_history, saved_snapshots, session_start_time
     
     try:
         with lock:
             emotion_counter.clear()
             emotion_history.clear()
+            emotion_intensity_history.clear()
+            saved_snapshots.clear()
             session_start_time = datetime.datetime.now()
         
         logger.info("Statistics reset successfully")
         return jsonify({
             'success': True,
-            'message': 'Statistics reset successfully',
+            'message': 'All statistics, snapshots, and history cleared successfully',
             'timestamp': datetime.datetime.now().isoformat()
         })
     except Exception as e:

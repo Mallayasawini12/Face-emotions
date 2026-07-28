@@ -179,8 +179,20 @@
             applyChartTheme(currentTheme);
         });
 
+        const isResetActive = sessionStorage.getItem('emotisense_reset_active') === 'true';
         let rawEmotionData = JSON.parse(document.getElementById('emotionData').textContent);
-        if (!rawEmotionData || Object.keys(rawEmotionData).length === 0 || Object.values(rawEmotionData).reduce((a, b) => a + b, 0) === 0) {
+
+        if (isResetActive) {
+            rawEmotionData = {
+                'happy': 0,
+                'neutral': 0,
+                'surprise': 0,
+                'sad': 0,
+                'angry': 0,
+                'fear': 0,
+                'disgust': 0
+            };
+        } else if (!rawEmotionData || Object.keys(rawEmotionData).length === 0 || Object.values(rawEmotionData).reduce((a, b) => a + b, 0) === 0) {
             rawEmotionData = {
                 'happy': 45,
                 'neutral': 38,
@@ -211,13 +223,15 @@
 
         // Update stats
         document.getElementById('totalDetections').textContent = totalDetections;
-        document.getElementById('emotionTypes').textContent = emotionLabels.length;
+        document.getElementById('emotionTypes').textContent = totalDetections > 0 ? emotionLabels.length : 0;
         
-        if (emotionLabels.length > 0) {
+        if (totalDetections > 0 && emotionLabels.length > 0) {
             const maxIndex = emotionValues.indexOf(Math.max(...emotionValues));
             const dominantEmotion = emotionLabels[maxIndex];
             document.getElementById('dominantEmotion').textContent = 
                 dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1);
+        } else {
+            document.getElementById('dominantEmotion').textContent = 'None';
         }
 
         let barChart = null;
@@ -372,7 +386,7 @@
 
         // Reset statistics
         async function resetStats() {
-            if (!confirm('Are you sure you want to reset all statistics? This action cannot be undone.')) {
+            if (!confirm('Are you sure you want to reset all statistics? This will clear all charts, counters, and history.')) {
                 return;
             }
 
@@ -387,8 +401,32 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('Statistics reset successfully!');
-                    location.reload();
+                    sessionStorage.setItem('emotisense_reset_active', 'true');
+
+                    // Clear DOM counters instantly
+                    document.getElementById('totalDetections').textContent = '0';
+                    document.getElementById('emotionTypes').textContent = '0';
+                    document.getElementById('dominantEmotion').textContent = 'None';
+
+                    // Zero out bar chart
+                    if (barChart) {
+                        barChart.data.datasets[0].data = barChart.data.datasets[0].data.map(() => 0);
+                        barChart.update();
+                    }
+
+                    // Zero out pie chart
+                    if (pieChart) {
+                        pieChart.data.datasets[0].data = pieChart.data.datasets[0].data.map(() => 0);
+                        pieChart.update();
+                    }
+
+                    // Clear Detailed Breakdown list
+                    const emotionList = document.getElementById('emotionList');
+                    if (emotionList) {
+                        emotionList.innerHTML = '<div style="padding: 2.5rem; text-align: center; color: var(--text-secondary);"><i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--success); margin-bottom: 0.75rem; display: block;"></i> <strong style="font-size: 1.1rem;">All statistics and session history cleared!</strong><p style="margin-top:0.25rem; font-size:0.9rem;">Start camera on live feed to record new detections.</p></div>';
+                    }
+
+                    alert('All statistics, charts, and session history have been cleared!');
                 } else {
                     alert('Error resetting statistics: ' + result.message);
                 }
