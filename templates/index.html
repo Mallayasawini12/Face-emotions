@@ -494,11 +494,21 @@
             }
         }
 
-        // Auto-initialize camera fallback only if server stream errors
+        // Auto-initialize camera on Vercel or cloud domains
         document.addEventListener('DOMContentLoaded', () => {
-            const img = document.getElementById('videoFeedImg');
-            if (img) {
-                img.style.display = 'block';
+            const host = window.location.hostname;
+            const isCloud = host.includes('vercel.app') || host.includes('render.com') || host.includes('netlify') || window.location.protocol === 'https:';
+
+            if (isCloud) {
+                const img = document.getElementById('videoFeedImg');
+                const video = document.getElementById('clientWebcamVideo');
+                const overlay = document.getElementById('camPromptOverlay');
+
+                if (img) img.style.display = 'none';
+                if (video) video.style.display = 'block';
+                if (overlay) overlay.style.display = 'flex';
+
+                setTimeout(enableClientWebcam, 200);
             }
         });
 
