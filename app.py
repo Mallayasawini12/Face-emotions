@@ -327,24 +327,26 @@ def generate_frames():
                     
                     main_color = EMOTION_COLORS.get(display_emotion, (0, 255, 0))
 
-                    # Bounding box around face
+                    # Glowing bounding box around face
                     cv2.rectangle(frame, (x, y), (x+w, y+h), main_color, 2)
                     
-                    # Annotate top emotion with high-contrast styled card
+                    # Annotate top emotion directly above face box
+                    label_x = max(10, min(frame.shape[1] - 200, x))
                     label_y = max(35, y - 10)
-                    draw_styled_text(frame, f'Emotion: {display_emotion.upper()}', (x, label_y), font_scale=0.75, text_color=main_color)
+                    draw_styled_text(frame, f'{display_emotion.upper()} ({emotion_intensity:.1f}%)', (label_x, label_y), font_scale=0.75, text_color=main_color)
                     
-                    # Show top 3 emotions with scores
-                    y_offset = min(frame.shape[0] - 20, y + h + 30)
+                    # Always draw fixed Top 3 Emotion Breakdown card at top-left corner (30, 45) for 100% readability
+                    draw_styled_text(frame, f'EMOTION: {display_emotion.upper()}', (30, 40), font_scale=0.85, text_color=main_color)
+                    y_offset = 80
                     sorted_emotions = sorted(emotion_scores.items(), key=lambda item: item[1], reverse=True)[:3]
                     for emo, score in sorted_emotions:
                         display_emo = 'sad' if emo in ['sad', 'cry'] else emo
                         emo_color = EMOTION_COLORS.get(display_emo, (255, 255, 255))
-                        draw_styled_text(frame, f'{display_emo.capitalize()}: {score:.1f}%', (x, y_offset), font_scale=0.55, text_color=emo_color)
-                        y_offset += 28
+                        draw_styled_text(frame, f'{display_emo.capitalize()}: {score:.1f}%', (30, y_offset), font_scale=0.6, text_color=emo_color)
+                        y_offset += 32
                 else:
                     scores_history.clear()
-                    draw_styled_text(frame, 'No face detected', (30, 45), font_scale=0.75, text_color=(50, 50, 255))
+                    draw_styled_text(frame, 'Searching for face...', (30, 45), font_scale=0.75, text_color=(50, 180, 255))
             except Exception as e:
                 logger.error(f"Error in ONNX fallback: {e}")
                 draw_styled_text(frame, 'Analysis Error', (30, 45), font_scale=0.75, text_color=(50, 50, 255))
