@@ -378,20 +378,6 @@
                 ctx.fillStyle = '#00f2fe';
                 ctx.fillText(emoText, boxX + 12, boxY - 18);
 
-                // Tracking Badge below face box
-                ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect(boxX, boxY + boxHeight + 10, 135, 24, 4);
-                } else {
-                    ctx.rect(boxX, boxY + boxHeight + 10, 135, 24);
-                }
-                ctx.fill();
-
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 11px sans-serif';
-                ctx.fillText('✓ AI FACE TRACKING', boxX + 8, boxY + boxHeight + 26);
-
                 hudAnimationId = requestAnimationFrame(drawHUDFrame);
             }
 
