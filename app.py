@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify, send_file, request
+from flask import Flask, render_template, Response, jsonify, send_file, request, session, redirect, url_for
 import cv2
 import logging
 import os
@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'), static_folder=os.path.join(BASE_DIR, 'static'))
+app.secret_key = os.environ.get('SECRET_KEY', 'emotisense_secret_key_2026')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 @app.after_request
@@ -361,9 +362,80 @@ def generate_frames():
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+# User Authentication Database & Gatekeeper
+USERS_DB = {
+    'demo@emotisense.ai': {'name': 'Demo User', 'password': 'password123'}
+}
+
+@app.before_request
+def require_login():
+    """Protect main website pages requiring user authentication"""
+    public_endpoints = ['login', 'signup', 'static', 'video']
+    if request.endpoint and request.endpoint not in public_endpoints:
+        if 'user' not in session:
+            return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Render login page and authenticate user"""
+    if request.method == 'POST':
+        data = request.form or request.get_json(silent=True) or {}
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '').strip()
+
+        if email and password:
+            user = USERS_DB.get(email)
+            if user and user['password'] == password:
+                session['user'] = {'email': email, 'name': user['name']}
+                return redirect(url_for('index'))
+            else:
+                # Auto-register new users on first login attempt
+                name = email.split('@')[0].capitalize()
+                USERS_DB[email] = {'name': name, 'password': password}
+                session['user'] = {'email': email, 'name': name}
+                return redirect(url_for('index'))
+
+        if request.args.get('demo') == 'true' or data.get('demo') == 'true':
+            session['user'] = {'email': 'demo@emotisense.ai', 'name': 'EmotiSense User'}
+            return redirect(url_for('index'))
+
+        return render_template('login.html', error='Please provide a valid email and password.')
+
+    if request.args.get('demo') == 'true':
+        session['user'] = {'email': 'demo@emotisense.ai', 'name': 'EmotiSense User'}
+        return redirect(url_for('index'))
+
+    if 'user' in session:
+        return redirect(url_for('index'))
+
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    """Register new user account"""
+    if request.method == 'POST':
+        data = request.form or request.get_json(silent=True) or {}
+        name = data.get('name', '').strip() or 'User'
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '').strip()
+
+        if email and password:
+            USERS_DB[email] = {'name': name, 'password': password}
+            session['user'] = {'email': email, 'name': name}
+            return redirect(url_for('index'))
+
+        return render_template('login.html', error='Please fill out all required fields.', tab='signup')
+    return render_template('login.html', tab='signup')
+
+@app.route('/logout')
+def logout():
+    """Clear session and redirect to login page"""
+    session.pop('user', None)
+    return redirect(url_for('login'))
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', user=session.get('user'))
 
 @app.route('/video')
 def video():

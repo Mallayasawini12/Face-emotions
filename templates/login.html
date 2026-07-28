@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | EmotiSense AI - Facial Emotion Recognition</title>
+    <meta name="description" content="Sign in to EmotiSense AI for real-time facial expression analysis, mood music recommendations, and session telemetry.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260728_login">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.12) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.12) 0%, transparent 40%),
+                        var(--bg-main);
+            padding: 1.5rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 1040px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--bg-card);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+        }
+
+        @media (max-width: 868px) {
+            .login-wrapper {
+                grid-template-columns: 1fr;
+                max-width: 480px;
+            }
+            .login-hero-side {
+                display: none;
+            }
+        }
+
+        .login-hero-side {
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            padding: 3.5rem;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-hero-side::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+            animation: pulseGlow 12s infinite linear;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hero-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            z-index: 2;
+        }
+
+        .hero-brand i {
+            font-size: 2.2rem;
+            color: #f59e0b;
+        }
+
+        .hero-content {
+            z-index: 2;
+            margin: 3rem 0;
+        }
+
+        .hero-content h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .hero-content p {
+            font-size: 1.05rem;
+            opacity: 0.92;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .feature-bullets {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-item i {
+            font-size: 1.1rem;
+            color: #38bdf8;
+        }
+
+        .hero-footer {
+            z-index: 2;
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .login-form-side {
+            padding: 3.5rem 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .form-header {
+            margin-bottom: 2rem;
+        }
+
+        .form-header h2 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .tab-switcher {
+            display: flex;
+            background: var(--bg-main);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.75rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.65rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.45rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper i.left-icon {
+            position: absolute;
+            left: 1.1rem;
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 0.85rem 1.1rem 0.85rem 2.8rem;
+            background: var(--bg-main);
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.25s ease;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 1.1rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .error-alert {
+            background: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .form-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .remember-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .remember-checkbox input {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+        }
+
+        .forgot-link {
+            color: var(--primary);
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .btn-auth {
+            width: 100%;
+            padding: 0.95rem;
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+
+        .btn-auth:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.5);
+        }
+
+        .demo-divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 1.5rem 0;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-divider::before, .demo-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .demo-divider span {
+            padding: 0 1rem;
+        }
+
+        .btn-demo {
+            width: 100%;
+            padding: 0.85rem;
+            background: transparent;
+            border: 1.5px dashed var(--primary);
+            color: var(--primary);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+
+        .btn-demo:hover {
+            background: rgba(79, 70, 229, 0.08);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-wrapper">
+        <!-- Hero Visual Side -->
+        <div class="login-hero-side">
+            <div class="hero-brand">
+                <i class="fas fa-smile"></i>
+                <span>EmotiSense AI</span>
+            </div>
+
+            <div class="hero-content">
+                <h1>Facial Emotion Recognition System</h1>
+                <p>Experience real-time deep learning facial expression classification, live telemetry, and smart mood recommendations.</p>
+
+                <div class="feature-bullets">
+                    <div class="feature-item">
+                        <i class="fas fa-video"></i>
+                        <span>Real-Time Webcam Face HUD Overlay</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-music"></i>
+                        <span>Mood-Based Spotify & Quote Recommender</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-camera"></i>
+                        <span>Instant Snapshot Gallery</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Live Session Analytics Dashboard</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-footer">
+                &copy; 2026 EmotiSense AI. Protected by End-to-End Encryption.
+            </div>
+        </div>
+
+        <!-- Form Form Side -->
+        <div class="login-form-side">
+            <div class="form-header">
+                <h2>Welcome Back 👋</h2>
+                <p>Sign in to access live camera emotion tracking</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="tab-switcher">
+                <button type="button" class="tab-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">Sign In</button>
+                <button type="button" class="tab-btn" id="signupTabBtn" onclick="switchAuthTab('signup')">Create Account</button>
+            </div>
+
+            {% if error %}
+            <div class="error-alert">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Login Form -->
+            <form id="authForm" action="/login" method="POST">
+                <input type="hidden" id="authModeInput" name="mode" value="login">
+
+                <div class="input-group" id="nameGroup" style="display: none;">
+                    <label for="nameInput">Full Name</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user left-icon"></i>
+                        <input type="text" id="nameInput" name="name" placeholder="Enter your full name">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="emailInput">Email Address</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope left-icon"></i>
+                        <input type="email" id="emailInput" name="email" placeholder="name@example.com" required value="demo@emotisense.ai">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="passwordInput">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock left-icon"></i>
+                        <input type="password" id="passwordInput" name="password" placeholder="••••••••" required value="password123">
+                        <i class="fas fa-eye toggle-password" onclick="togglePasswordVisibility()"></i>
+                    </div>
+                </div>
+
+                <div class="form-actions" id="formActions">
+                    <label class="remember-checkbox">
+                        <input type="checkbox" name="remember" checked>
+                        <span>Remember me</span>
+                    </label>
+                    <a href="#" onclick="alert('Demo Mode: Click Instant Demo Login below!')" class="forgot-link">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn-auth" id="submitBtn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Sign In to EmotiSense</span>
+                </button>
+            </form>
+
+            <div class="demo-divider">
+                <span>Or Continue With</span>
+            </div>
+
+            <!-- Instant 1-Click Demo Login -->
+            <form action="/login" method="GET">
+                <input type="hidden" name="demo" value="true">
+                <button type="submit" class="btn-demo">
+                    <i class="fas fa-bolt" style="color: #f59e0b;"></i>
+                    <span>Instant 1-Click Demo Access</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function switchAuthTab(tab) {
+            const loginBtn = document.getElementById('loginTabBtn');
+            const signupBtn = document.getElementById('signupTabBtn');
+            const authForm = document.getElementById('authForm');
+            const nameGroup = document.getElementById('nameGroup');
+            const formActions = document.getElementById('formActions');
+            const submitBtn = document.getElementById('submitBtn');
+            const authModeInput = document.getElementById('authModeInput');
+
+            if (tab === 'signup') {
+                loginBtn.classList.remove('active');
+                signupBtn.classList.add('active');
+                nameGroup.style.display = 'block';
+                formActions.style.display = 'none';
+                authForm.action = '/signup';
+                authModeInput.value = 'signup';
+                submitBtn.innerHTML = '<i class="fas fa-user-plus"></i><span>Create Account</span>';
+            } else {
+                signupBtn.classList.remove('active');
+                loginBtn.classList.add('active');
+                nameGroup.style.display = 'none';
+                formActions.style.display = 'flex';
+                authForm.action = '/login';
+                authModeInput.value = 'login';
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i><span>Sign In to EmotiSense</span>';
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const pwd = document.getElementById('passwordInput');
+            const icon = document.querySelector('.toggle-password');
+            if (pwd.type === 'password') {
+                pwd.type = 'text';
+                icon.className = 'fas fa-eye-slash toggle-password';
+            } else {
+                pwd.type = 'password';
+                icon.className = 'fas fa-eye toggle-password';
+            }
+        }
+    </script>
+</body>
+</html>
