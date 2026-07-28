@@ -289,13 +289,13 @@ def generate_frames():
                     probs = e_x / e_x.sum()
                     
                     current_scores = {
-                        'neutral': float(probs[0]) * 100,
-                        'happy': float(probs[1]) * 100,
-                        'surprise': float(probs[2]) * 100,
-                        'sad': float(probs[3]) * 100,
-                        'angry': float(probs[4]) * 100,
-                        'disgust': float(probs[5]) * 100,
-                        'fear': float(probs[6]) * 100
+                        'angry': float(probs[0]) * 100,
+                        'disgust': float(probs[1]) * 100,
+                        'fear': float(probs[2]) * 100,
+                        'happy': float(probs[3]) * 100,
+                        'sad': float(probs[4]) * 100,
+                        'surprise': float(probs[5]) * 100,
+                        'neutral': float(probs[6] + (probs[7] if len(probs) > 7 else 0)) * 100
                     }
                     
                     scores_history.append(current_scores)
@@ -550,13 +550,13 @@ def predict_emotion_endpoint():
             probs = e_x / e_x.sum()
 
             emotion_scores = {
-                'neutral': round(float(probs[0]) * 100, 1),
-                'happy': round(float(probs[1]) * 100, 1),
-                'surprise': round(float(probs[2]) * 100, 1),
-                'sad': round(float(probs[3]) * 100, 1),
-                'angry': round(float(probs[4]) * 100, 1),
-                'disgust': round(float(probs[5]) * 100, 1),
-                'fear': round(float(probs[6]) * 100, 1)
+                'angry': round(float(probs[0]) * 100, 1),
+                'disgust': round(float(probs[1]) * 100, 1),
+                'fear': round(float(probs[2]) * 100, 1),
+                'happy': round(float(probs[3]) * 100, 1),
+                'sad': round(float(probs[4]) * 100, 1),
+                'surprise': round(float(probs[5]) * 100, 1),
+                'neutral': round(float(probs[6] + (probs[7] if len(probs) > 7 else 0)) * 100, 1)
             }
 
             dominant = max(emotion_scores, key=emotion_scores.get)
