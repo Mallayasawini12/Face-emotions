@@ -326,11 +326,21 @@
                 const h = canvas.height;
                 ctx.clearRect(0, 0, w, h);
 
-                // Centered face bounding box calculation
-                const boxWidth = Math.min(w * 0.42, 250);
-                const boxHeight = boxWidth * 1.25;
-                const boxX = (w - boxWidth) / 2;
-                const boxY = (h - boxHeight) / 2 - 10;
+                // Dynamic face bounding box calculation based on detected face or center box
+                let boxX, boxY, boxWidth, boxHeight;
+                if (activeFaceBox && activeFaceBox.w > 0) {
+                    const scaleX = w / 320.0;
+                    const scaleY = h / 240.0;
+                    boxX = activeFaceBox.x * scaleX;
+                    boxY = activeFaceBox.y * scaleY;
+                    boxWidth = activeFaceBox.w * scaleX;
+                    boxHeight = activeFaceBox.h * scaleY;
+                } else {
+                    boxWidth = Math.min(w * 0.42, 250);
+                    boxHeight = boxWidth * 1.25;
+                    boxX = (w - boxWidth) / 2;
+                    boxY = (h - boxHeight) / 2 - 10;
+                }
 
                 // Glowing Cyan HUD Bounding Box
                 ctx.strokeStyle = '#00f2fe';
@@ -339,7 +349,7 @@
                 ctx.shadowBlur = 10;
 
                 // Corner Brackets
-                const cornerLen = 22;
+                const cornerLen = Math.min(22, boxWidth * 0.2);
                 // Top-Left
                 ctx.beginPath(); ctx.moveTo(boxX, boxY + cornerLen); ctx.lineTo(boxX, boxY); ctx.lineTo(boxX + cornerLen, boxY); ctx.stroke();
                 // Top-Right
@@ -391,6 +401,62 @@
 
             if (hudAnimationId) cancelAnimationFrame(hudAnimationId);
             drawHUDFrame();
+        }
+
+        let activeFaceBox = null;
+        async function captureAndPredictFrame() {
+            const video = document.getElementById('clientWebcamVideo');
+            if (!video || video.paused || video.ended || !video.srcObject) return;
+
+            try {
+                const hiddenCanvas = document.createElement('canvas');
+                hiddenCanvas.width = 320;
+                hiddenCanvas.height = 240;
+                const hctx = hiddenCanvas.getContext('2d');
+                hctx.drawImage(video, 0, 0, 320, 240);
+                const dataUrl = hiddenCanvas.toDataURL('image/jpeg', 0.7);
+
+                const res = await fetch('/api/predict_emotion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: dataUrl })
+                });
+                const result = await res.json();
+
+                if (result.success && result.dominant_emotion) {
+                    currentDetectedMood = result.dominant_emotion;
+                    currentConfidence = result.confidence;
+                    if (result.face) {
+                        activeFaceBox = result.face;
+                    }
+                    updateUIWithRecommendation(result.dominant_emotion, result.confidence, result.recommendation);
+                }
+            } catch (err) {
+                console.warn("Prediction error:", err);
+            }
+        }
+        setInterval(captureAndPredictFrame, 1200);
+
+        function updateUIWithRecommendation(mood, confidence, rec) {
+            rec = rec || {};
+            document.getElementById('liveMoodName').textContent = mood.charAt(0).toUpperCase() + mood.slice(1);
+            document.getElementById('liveMoodIcon').textContent = rec.icon || '😐';
+            document.getElementById('liveConfidenceVal').textContent = confidence + '%';
+            document.getElementById('liveConfidenceBar').style.width = confidence + '%';
+
+            if (rec.quote) {
+                document.getElementById('moodQuote').textContent = `"${rec.quote}"`;
+            }
+            if (rec.playlist_url && rec.music_title) {
+                const musicLink = document.getElementById('moodMusicLink');
+                musicLink.href = rec.playlist_url;
+                musicLink.innerHTML = `${rec.music_title} <i class="fas fa-external-link-alt" style="font-size:0.75rem;"></i>`;
+            }
+
+            if (voiceEnabled && mood !== lastSpokenEmotion) {
+                lastSpokenEmotion = mood;
+                speakText(`${mood} detected`);
+            }
         }
 
         // 📷 Client-Side Webcam Fallback for Vercel Cloud Deployment

@@ -282,14 +282,18 @@ def generate_frames():
                     preds = emotion_net.forward()
                     scores = preds[0]
                     
+                    # Apply softmax for accurate probability distribution
+                    e_x = np.exp(scores - np.max(scores))
+                    probs = e_x / e_x.sum()
+                    
                     current_scores = {
-                        'neutral': float(scores[0] + scores[7]) * 100,
-                        'happy': float(scores[1]) * 100,
-                        'surprise': float(scores[2]) * 100,
-                        'sad': float(scores[3]) * 100,
-                        'angry': float(scores[4]) * 100,
-                        'disgust': float(scores[5]) * 100,
-                        'fear': float(scores[6]) * 100
+                        'neutral': float(probs[0]) * 100,
+                        'happy': float(probs[1]) * 100,
+                        'surprise': float(probs[2]) * 100,
+                        'sad': float(probs[3]) * 100,
+                        'angry': float(probs[4]) * 100,
+                        'disgust': float(probs[5]) * 100,
+                        'fear': float(probs[6]) * 100
                     }
                     
                     scores_history.append(current_scores)
@@ -433,6 +437,76 @@ MOOD_RECOMMENDATIONS = {
         'color': '#6b7280'
     }
 }
+
+@app.route('/api/predict_emotion', methods=['POST'])
+def predict_emotion_endpoint():
+    """Classify emotion from base64 image frame posted by client browser"""
+    global emotion_counter, emotion_history
+    try:
+        data = request.get_json(silent=True) or {}
+        img_b64 = data.get('image', '')
+        if not img_b64 or ',' not in img_b64:
+            return jsonify({'success': False, 'message': 'No valid image data'}), 400
+
+        header, encoded = img_b64.split(',', 1)
+        img_bytes = base64.b64decode(encoded)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return jsonify({'success': False, 'message': 'Decode failed'}), 400
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=3, minSize=(30, 30)) if face_cascade is not None else []
+
+        if len(faces) > 0 and emotion_net is not None:
+            (x, y, w, h) = max(faces, key=lambda f: f[2] * f[3])
+            face_roi = gray[y:y+h, x:x+w]
+            face_roi = cv2.resize(face_roi, (64, 64))
+            normalized = (face_roi.astype(np.float32) - 127.5) / 127.5
+            blob = np.expand_dims(np.expand_dims(normalized, axis=0), axis=0)
+
+            emotion_net.setInput(blob)
+            preds = emotion_net.forward()
+            scores = preds[0]
+
+            e_x = np.exp(scores - np.max(scores))
+            probs = e_x / e_x.sum()
+
+            emotion_scores = {
+                'neutral': round(float(probs[0]) * 100, 1),
+                'happy': round(float(probs[1]) * 100, 1),
+                'surprise': round(float(probs[2]) * 100, 1),
+                'sad': round(float(probs[3]) * 100, 1),
+                'angry': round(float(probs[4]) * 100, 1),
+                'disgust': round(float(probs[5]) * 100, 1),
+                'fear': round(float(probs[6]) * 100, 1)
+            }
+
+            dominant = max(emotion_scores, key=emotion_scores.get)
+            confidence = emotion_scores[dominant]
+
+            with lock:
+                emotion_counter[dominant] += 1
+                emotion_history.append({
+                    'emotion': dominant,
+                    'timestamp': datetime.datetime.now().isoformat(),
+                    'scores': emotion_scores
+                })
+
+            rec = MOOD_RECOMMENDATIONS.get(dominant, MOOD_RECOMMENDATIONS['neutral'])
+            return jsonify({
+                'success': True,
+                'dominant_emotion': dominant,
+                'confidence': confidence,
+                'scores': emotion_scores,
+                'recommendation': rec,
+                'face': {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)}
+            })
+        else:
+            return jsonify({'success': False, 'message': 'No face detected'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # API Endpoints
 @app.route('/api/emotions')
