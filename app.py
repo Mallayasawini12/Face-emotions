@@ -413,7 +413,7 @@ USERS_DB = {
 @app.before_request
 def require_login():
     """Protect main website pages requiring user authentication"""
-    public_endpoints = ['login', 'signup', 'static', 'video']
+    public_endpoints = ['login', 'signup', 'static', 'video', 'dataset_page', 'api_dataset']
     if request.endpoint and request.endpoint not in public_endpoints:
         if 'user' not in session:
             return redirect(url_for('login'))
