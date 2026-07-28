@@ -497,6 +497,34 @@ def dashboard():
                            total=total_detections,
                            duration=str(session_duration).split('.')[0])
 
+# Official Kaggle Emotions Dataset Metadata (nelgiriyewithana/emotions - 416,809 records)
+KAGGLE_DATASET_INFO = {
+    'dataset_id': 'nelgiriyewithana/emotions',
+    'total_records': 416809,
+    'description': 'Kaggle Emotions Dataset with 416k+ labeled instances across 6 emotion classes',
+    'mapping': {
+        0: 'sadness',
+        1: 'joy / happy',
+        2: 'love',
+        3: 'anger / angry',
+        4: 'fear',
+        5: 'surprise'
+    },
+    'distribution': {
+        'joy / happy': 141067,
+        'sadness': 121187,
+        'anger': 57317,
+        'fear': 47712,
+        'love': 34554,
+        'surprise': 14972
+    }
+}
+
+@app.route('/api/dataset')
+def api_dataset():
+    """Expose Kaggle nelgiriyewithana/emotions dataset info"""
+    return jsonify(KAGGLE_DATASET_INFO)
+
 MOOD_RECOMMENDATIONS = {
     'happy': {
         'quote': 'Keep smiling, because life is a beautiful thing and there is so much to smile about!',
@@ -504,6 +532,13 @@ MOOD_RECOMMENDATIONS = {
         'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DXdPec7aLTmlC',
         'icon': '😊',
         'color': '#f59e0b'
+    },
+    'love': {
+        'quote': 'Love is composed of a single soul inhabiting two bodies. Spread warmth and kindness!',
+        'music_title': 'Romantic Melodies & Warm Acoustic',
+        'playlist_url': 'https://open.spotify.com/playlist/37i9dQZF1DX50QitC6O5tn',
+        'icon': '💖',
+        'color': '#ec4899'
     },
     'cry': {
         'quote': 'Tears come from the heart and not from the brain. It is okay to feel sad — brighter days are ahead!',
